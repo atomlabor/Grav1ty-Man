@@ -1,6 +1,7 @@
 /**
  * Gravity-Man Player Class
  * Spieler-Logik und Animation mit erweiterten Bewegungsmethoden
+ * COMMODORE C16/PLUS4 BLACK & WHITE COLOR SCHEME
  */
 class Player {
   constructor(x = 50, y = 50) {
@@ -35,6 +36,14 @@ class Player {
     // Trail effect for debugging
     this.trail = [];
     this.maxTrailLength = 10;
+    
+    // C16/Plus4 Color Palette (Black & White)
+    this.colors = {
+      white: '#FFFFFF',
+      black: '#000000',
+      darkGray: '#444444',
+      lightGray: '#CCCCCC'
+    };
   }
   
   update(deltaTime, gravity, level) {
@@ -200,51 +209,78 @@ class Player {
   render(ctx) {
     if (!this.isAlive) return;
     
-    // Render trail
+    // Render trail in black & white
     this.renderTrail(ctx);
     
-    // Player body with invulnerability effect
+    // Player body with pixel-perfect black & white design
     ctx.fillStyle = this.invulnerable ? 
-      (Math.floor(Date.now() / 100) % 2 ? '#ff6b35' : '#ffffff') : 
-      '#ff6b35';
-    ctx.fillRect(this.x, this.y, this.width, this.height);
+      (Math.floor(Date.now() / 100) % 2 ? this.colors.white : this.colors.black) : 
+      this.colors.white;
     
-    // Direction indicator
-    ctx.fillStyle = '#ffffff';
-    const centerX = this.x + this.width / 2;
-    const centerY = this.y + this.height / 2;
+    // Draw pixel-perfect sprite
+    this.drawPixelSprite(ctx);
+  }
+  
+  drawPixelSprite(ctx) {
+    const x = Math.floor(this.x);
+    const y = Math.floor(this.y);
+    
+    // C16/Plus4 style pixelated character (16x16)
+    ctx.fillStyle = this.invulnerable ? 
+      (Math.floor(Date.now() / 100) % 2 ? this.colors.black : this.colors.white) : 
+      this.colors.white;
+    
+    // Main body - sharp pixel blocks
+    ctx.fillRect(x + 2, y + 2, 12, 12);
+    
+    // Black outline/border for definition
+    ctx.fillStyle = this.colors.black;
+    // Top border
+    ctx.fillRect(x + 1, y + 1, 14, 1);
+    // Bottom border
+    ctx.fillRect(x + 1, y + 14, 14, 1);
+    // Left border
+    ctx.fillRect(x + 1, y + 2, 1, 12);
+    // Right border
+    ctx.fillRect(x + 14, y + 2, 1, 12);
+    
+    // Direction indicator - white pixels
+    ctx.fillStyle = this.colors.white;
+    const centerX = x + 8;
+    const centerY = y + 8;
     
     switch(this.direction) {
       case 'up':
-        ctx.fillRect(centerX - 2, this.y, 4, 4);
+        ctx.fillRect(centerX - 1, y + 3, 2, 2);
         break;
       case 'down':
-        ctx.fillRect(centerX - 2, this.y + this.height - 4, 4, 4);
+        ctx.fillRect(centerX - 1, y + 11, 2, 2);
         break;
       case 'left':
-        ctx.fillRect(this.x, centerY - 2, 4, 4);
+        ctx.fillRect(x + 3, centerY - 1, 2, 2);
         break;
       case 'right':
-        ctx.fillRect(this.x + this.width - 4, centerY - 2, 4, 4);
+        ctx.fillRect(x + 11, centerY - 1, 2, 2);
         break;
     }
     
-    // Eyes for character
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(this.x + 3, this.y + 3, 2, 2);
-    ctx.fillRect(this.x + 11, this.y + 3, 2, 2);
+    // Eyes - black pixels for contrast
+    ctx.fillStyle = this.colors.black;
+    ctx.fillRect(x + 4, y + 5, 2, 2);
+    ctx.fillRect(x + 10, y + 5, 2, 2);
   }
   
   renderTrail(ctx) {
     if (this.trail.length < 2) return;
     
-    ctx.strokeStyle = 'rgba(255, 107, 53, 0.3)';
-    ctx.lineWidth = 2;
+    // Black & white trail effect
+    ctx.strokeStyle = this.colors.darkGray;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+    ctx.moveTo(Math.floor(this.trail[0].x), Math.floor(this.trail[0].y));
     
     for (let i = 1; i < this.trail.length; i++) {
-      ctx.lineTo(this.trail[i].x, this.trail[i].y);
+      ctx.lineTo(Math.floor(this.trail[i].x), Math.floor(this.trail[i].y));
     }
     
     ctx.stroke();
