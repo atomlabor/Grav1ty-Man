@@ -1,34 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #gameCanvas {
-            border: none;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gravity-Man</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      height: 100%;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #gameCanvas { border: none; }
+  </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="240" height="282"></canvas>
-    <script src="src/js/player.js"></script>
-    <script src="src/js/game.js"></script>
-    <script>
-        // Initialize game when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            const game = new GravityManGame();
-            console.log('Gravity-Man game initialized');
-        });
-    </script>
+  <canvas id="gameCanvas" width="240" height="282"></canvas>
+  <script src="src/js/player.js"></script>
+  <script src="src/js/game.js"></script>
 </body>
 </html>
