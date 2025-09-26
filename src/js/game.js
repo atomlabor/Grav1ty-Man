@@ -23,29 +23,122 @@ class LevelManager {
     this.game = game;
     this.levels = [];
     this.current = null;
-    this.createDummyLevels();
+    this.createLevels();
   }
-  createDummyLevels() {
-    // Level Koordinaten basieren auf Canvas 240x282
-    // Level 1: Start links oben, Ziel rechts unten, einfache Plattformen + Hazard
+  /**
+   * Level-Dokumentation (Canvas 240x282, C16/Plus4 Schwarz/Weiss Stil)
+   * - Jedes Level definiert:
+   *   id: Nummer
+   *   start: Startkoordinaten des Spielers
+   *   goal: Ausgang (klar erkennbar: weisses Portal mit schwarzem Rand, meist an der Wand)
+   *   platforms: Wände/Plattformen (8px dicke Wände, hellere Plattformen)
+   *   hazards: Gefahren (schwarz)
+   * - Beim Erreichen des goal setzt der Game-Loop automatisch auf nächstes Level um (checkLevelComplete)
+   */
+  createLevels() {
+    // WAND-KONSTANTEN
+    const W = 240, H = 282, WALL = 8;
+    const walls = [
+      { x: 0, y: 0, width: W, height: WALL, color: '#888888' }, // top
+      { x: 0, y: H - WALL, width: W, height: WALL, color: '#888888' }, // bottom
+      { x: 0, y: 0, width: WALL, height: H, color: '#888888' }, // left
+      { x: W - WALL, y: 0, width: WALL, height: H, color: '#888888' }, // right
+    ];
+
+    // Level 1: Einstieg – diagonale Treppe, Ziel unten rechts an der Wand
     const level1 = {
       id: 1,
-      start: { x: 16, y: 16 },
-      goal: { x: 240 - 24, y: 282 - 24, width: 16, height: 16, color: '#FFFFFF' },
+      start: { x: WALL + 8, y: WALL + 8 },
+      goal: { x: W - WALL - 16, y: H - WALL - 16, width: 16, height: 16, color: '#FFFFFF', style: 'portal-corner' },
       platforms: [
-        { x: 0, y: 0, width: 240, height: 8, color: '#888888' }, // top wall
-        { x: 0, y: 282 - 8, width: 240, height: 8, color: '#888888' }, // bottom wall
-        { x: 0, y: 0, width: 8, height: 282, color: '#888888' }, // left wall
-        { x: 240 - 8, y: 0, width: 8, height: 282, color: '#888888' }, // right wall
+        ...walls,
         { x: 30, y: 80, width: 60, height: 8, color: '#BBBBBB' },
         { x: 110, y: 140, width: 80, height: 8, color: '#BBBBBB' },
-        { x: 50, y: 210, width: 140, height: 8, color: '#BBBBBB' }
+        { x: 50, y: 210, width: 140, height: 8, color: '#BBBBBB' },
+      ],
+      hazards: [ { x: 95, y: 90, width: 16, height: 16, color: '#000000' } ],
+      note: 'Einfacher Einstieg mit klar sichtbarem Ausgang unten rechts.'
+    };
+
+    // Level 2: Mittleres Labyrinth, Ausgang links Mitte als Portal in Wand
+    const level2 = {
+      id: 2,
+      start: { x: W - WALL - 24, y: WALL + 12 },
+      goal: { x: WALL, y: H / 2 - 8, width: 8, height: 16, color: '#FFFFFF', style: 'portal-wall-left' },
+      platforms: [
+        ...walls,
+        { x: 30, y: 60, width: 180, height: 8, color: '#BBBBBB' },
+        { x: 30, y: 120, width: 140, height: 8, color: '#BBBBBB' },
+        { x: 70, y: 180, width: 100, height: 8, color: '#BBBBBB' },
+        { x: 30, y: 240, width: 160, height: 8, color: '#BBBBBB' },
+        // vertikale Barrieren
+        { x: 100, y: 60, width: 8, height: 60, color: '#BBBBBB' },
+        { x: 160, y: 120, width: 8, height: 60, color: '#BBBBBB' },
       ],
       hazards: [
-        { x: 90, y: 90, width: 16, height: 16, color: '#000000' },
-      ]
+        { x: 176, y: 44, width: 16, height: 16, color: '#000000' },
+        { x: 120, y: 210, width: 16, height: 16, color: '#000000' },
+      ],
+      note: 'Portal-Ausgang in der linken Wand mittig.'
     };
-    this.levels = [level1];
+
+    // Level 3: Schacht – vertikale Korridore, Ausgang oben mittig als Deckenausgang
+    const level3 = {
+      id: 3,
+      start: { x: W / 2 - 8, y: H - WALL - 24 },
+      goal: { x: W / 2 - 8, y: 0, width: 16, height: 8, color: '#FFFFFF', style: 'portal-ceiling' },
+      platforms: [
+        ...walls,
+        // Schachtwände
+        { x: 60, y: 40, width: 8, height: H - 80, color: '#BBBBBB' },
+        { x: W - 68, y: 40, width: 8, height: H - 80, color: '#BBBBBB' },
+        // Zwischengesimse
+        { x: 80, y: 90, width: 80, height: 8, color: '#BBBBBB' },
+        { x: 140, y: 150, width: 60, height: 8, color: '#BBBBBB' },
+        { x: 100, y: 210, width: 80, height: 8, color: '#BBBBBB' },
+      ],
+      hazards: [
+        { x: 120, y: 120, width: 16, height: 16, color: '#000000' },
+        { x: 90, y: 180, width: 16, height: 16, color: '#000000' },
+      ],
+      note: 'Ausgang als Decken-Portal mittig, erfordert Schwerkraftwechsel.'
+    };
+
+    // Level 4: Zickzack – enge Passagen, Ausgang rechts oben als Wandportal
+    const level4 = {
+      id: 4,
+      start: { x: WALL + 10, y: H - WALL - 24 },
+      goal: { x: W - WALL - 8, y: WALL + 24, width: 8, height: 16, color: '#FFFFFF', style: 'portal-wall-right' },
+      platforms: [
+        ...walls,
+        { x: 20, y: 60, width: 200, height: 8, color: '#BBBBBB' },
+        { x: 20, y: 100, width: 160, height: 8, color: '#BBBBBB' },
+        { x: 60, y: 140, width: 160, height: 8, color: '#BBBBBB' },
+        { x: 20, y: 180, width: 160, height: 8, color: '#BBBBBB' },
+        { x: 20, y: 220, width: 200, height: 8, color: '#BBBBBB' },
+        // vertikale Engen
+        { x: 60, y: 60, width: 8, height: 60, color: '#BBBBBB' },
+        { x: 140, y: 100, width: 8, height: 60, color: '#BBBBBB' },
+        { x: 100, y: 160, width: 8, height: 60, color: '#BBBBBB' },
+      ],
+      hazards: [
+        { x: 180, y: 130, width: 16, height: 16, color: '#000000' },
+        { x: 40, y: 200, width: 16, height: 16, color: '#000000' },
+      ],
+      note: 'Zickzackplattformen, Ausgang als rechtes Wandportal oben.'
+    };
+
+    // Optionale Platzhalter für spätere Levels (5..14)
+    const placeholders = Array.from({ length: 10 }, (_, i) => ({
+      id: 5 + i,
+      start: { x: WALL + 8, y: WALL + 8 },
+      goal: { x: W - WALL - 16, y: H - WALL - 16, width: 16, height: 16, color: '#FFFFFF', style: 'portal-corner' },
+      platforms: [...walls],
+      hazards: [],
+      note: 'Platzhalter – zur späteren Ausarbeitung.'
+    }));
+
+    this.levels = [level1, level2, level3, level4, ...placeholders];
   }
   load(id) {
     const level = this.levels.find(l => l.id === id) || this.levels[0];
@@ -61,26 +154,24 @@ class LevelManager {
     const wallColor = '#888888';
     const hazardColor = '#000000';
     const goalColor = '#FFFFFF';
-
     // platforms
     for (const p of this.current.platforms) {
       const c = (p.height <= 8 || p.width <= 8) ? wallColor : platformColor;
       ctx.fillStyle = c;
       ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.floor(p.width), Math.floor(p.height));
     }
-    // goal
+    // goal (portal mit schwarzem Rahmen zur besseren Sichtbarkeit)
     const g = this.current.goal;
     ctx.fillStyle = goalColor;
     ctx.fillRect(Math.floor(g.x), Math.floor(g.y), Math.floor(g.width), Math.floor(g.height));
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.floor(g.x) + 0.5, Math.floor(g.y) + 0.5, Math.floor(g.width), Math.floor(g.height));
     // hazards
     for (const h of (this.current.hazards || [])) {
       ctx.fillStyle = hazardColor;
       ctx.fillRect(Math.floor(h.x), Math.floor(h.y), Math.floor(h.width), Math.floor(h.height));
     }
-    // Optional: draw goal outline for visibility
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(Math.floor(g.x) + 0.5, Math.floor(g.y) + 0.5, Math.floor(g.width), Math.floor(g.height));
   }
 }
 class GravityManGame {
@@ -220,86 +311,4 @@ class GravityManGame {
     requestAnimationFrame((t) => this.gameLoop(t));
   }
   update(deltaTime) {
-    if (this.isPaused) return;
-    this.player?.update(deltaTime, this.gravity, this.levels?.current);
-    this.gravity?.update(deltaTime);
-    this.enemies?.update(deltaTime);
-    this.checkCollisions();
-    this.checkLevelComplete();
-  }
-  render() {
-    // Clear to pure black background
-    this.ctx.fillStyle = '#000000';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    if (this.isPaused) {
-      this.renderPauseScreen();
-      return;
-    }
-    // Minimalist monochrome background pattern for retro feel
-    this.renderBackground();
-    this.levels?.render(this.ctx);
-    this.enemies?.render(this.ctx);
-    this.player?.render(this.ctx);
-    this.renderUI();
-  }
-  renderBackground() {
-    // Draw subtle scanline pattern in dark gray
-    const ctx = this.ctx;
-    ctx.fillStyle = '#111111';
-    for (let y = 0; y < this.canvas.height; y += 2) {
-      ctx.fillRect(0, y, this.canvas.width, 1);
-    }
-  }
-  renderUI() {
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '12px monospace';
-    this.ctx.fillText(`Level: ${this.currentLevel}`, 10, 20);
-    this.ctx.fillText(`Mode: ${this.gameMode}`, 10, 35);
-    if (!this.isRunning) {
-      this.ctx.fillText('Press SPACE or tap to start', 10, 50);
-    }
-  }
-  renderPauseScreen() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 16px monospace';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.textAlign = 'left';
-  }
-  checkCollisions() {
-    // Player-level handled in player.update via checkLevelCollisions
-  }
-  checkLevelComplete() {
-    if (this.player?.hasReachedGoal) {
-      this.currentLevel += 1;
-      this.updateLevelDisplay();
-      if (!this.levels.levels.find(l => l.id === this.currentLevel)) {
-        // restart loop for demo
-        this.currentLevel = 1;
-      }
-      this.levels.load(this.currentLevel);
-    }
-  }
-  updateLevelDisplay() {
-    const el = document.getElementById('currentLevel');
-    if (el) el.textContent = this.currentLevel;
-  }
-  updateModeDisplay() {
-    const el = document.getElementById('gameMode');
-    if (el) el.textContent = this.gameMode.charAt(0).toUpperCase() + this.gameMode.slice(1);
-  }
-}
-// Game Initialisierung wenn DOM geladen
-document.addEventListener('DOMContentLoaded', () => {
-  // Expose Player globally if required for LevelManager
-  if (typeof window.Player === 'undefined' && typeof Player !== 'undefined') {
-    window.Player = Player;
-  }
-  window.gravityManGame = new GravityManGame();
-});
-// Export für Module
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = GravityManGame;
-}
+    if (this.isPaused)
