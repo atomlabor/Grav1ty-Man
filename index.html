@@ -1,28 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gravity-Man</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      height: 100%;
-    }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    #gameCanvas { border: none; }
-  </style>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Gravity-Man - Rabbit R1 Game</title>
+    <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
-  <canvas id="gameCanvas" width="240" height="282"></canvas>
-  <script src="src/js/player.js"></script>
-  <script src="src/js/game.js"></script>
+    <div class="game-container">
+        <h1>Gravity-Man</h1>
+        <p class="subtitle">Ein Gravity Boy Remake für Rabbit R1</p>
+        
+        <!-- Game Canvas optimiert für Rabbit R1 Display -->
+        <canvas id="gameCanvas" width="240" height="282"></canvas>
+        
+        <!-- Rabbit R1 Integration Hinweise -->
+        <div class="r1-info">
+            <h3>🐰 Rabbit R1 Integration</h3>
+            <p>Dieses Spiel ist speziell für das Rabbit R1 Gerät optimiert:</p>
+            <ul>
+                <li>Display: 240x282px Canvas perfekt angepasst</li>
+                <li>Touch-Steuerung: Kompatibel mit R1 Touch-Interface</li>
+                <li>Hardware-Buttons: Integration über Rabbit R1 SDK geplant</li>
+            </ul>
+        </div>
+        
+        <!-- Spielsteuerung -->
+        <div class="controls">
+            <h3>Steuerung</h3>
+            <p>🎮 Pfeiltasten: Schwerkraftrichtung ändern</p>
+            <p>🎯 Ziel: Erreiche das Zielfeld in jedem Level</p>
+            <p>⚠️ Vermeide Feinde und Fallen</p>
+        </div>
+        
+        <!-- Game Status -->
+        <div id="gameStatus">
+            <span>Level: <span id="currentLevel">1</span></span>
+            <span>Modus: <span id="gameMode">Normal</span></span>
+        </div>
+    </div>
+    
+    <!-- JavaScript Module - nur existierende Dateien -->
+    <script src="src/js/player.js"></script>
+    <script src="src/js/game.js"></script>
 </body>
 </html>
