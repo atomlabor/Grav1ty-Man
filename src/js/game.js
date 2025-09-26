@@ -318,7 +318,6 @@ class GravityManGame {
     if (el) el.textContent = this.gameMode.charAt(0).toUpperCase() + this.gameMode.slice(1);
   }
 }
-
 // Game Initialisierung wenn DOM geladen
 document.addEventListener('DOMContentLoaded', () => {
   // Expose Player globally if required for LevelManager
@@ -328,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   window.gravityManGame = new GravityManGame();
 });
-
 // Export für Module
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = GravityManGame;
