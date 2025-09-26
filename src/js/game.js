@@ -12,6 +12,7 @@ class GravityManGame {
     this.isPaused = false;
     this.currentLevel = 1;
     this.gameMode = 'normal'; // 'normal' oder 'hard'
+    this.splashHidden = false; // Track if splash has been hidden after tap
     
     // Frame control
     this.lastFrameTime = 0;
@@ -158,6 +159,7 @@ class GravityManGame {
     if (this.isRunning) return;
     this.isRunning = true;
     this.isPaused = false;
+    this.splashHidden = true; // Hide splash when game starts
     this.gameLoop();
   }
   
@@ -169,6 +171,7 @@ class GravityManGame {
   restart() {
     this.isRunning = false;
     this.isPaused = false;
+    this.splashHidden = false; // Show splash again on restart
     this.levels.load(this.currentLevel);
     this.start();
   }
@@ -179,7 +182,8 @@ class GravityManGame {
   }
   
   gameLoop(currentTime = 0) {
-    if (!this.isRunning) {
+    // Only show splash if game is not running AND splash hasn't been hidden
+    if (!this.isRunning && !this.splashHidden) {
       this.renderSplash();
       requestAnimationFrame((t) => this.gameLoop(t));
       return;
@@ -211,7 +215,8 @@ class GravityManGame {
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    if (!this.isRunning) {
+    // Don't render splash if it has been hidden
+    if (!this.isRunning && !this.splashHidden) {
       this.renderSplash();
       return;
     }
@@ -232,6 +237,9 @@ class GravityManGame {
   }
   
   renderSplash() {
+    // Don't render splash if it has been hidden
+    if (this.splashHidden) return;
+    
     // Clear canvas with black background
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -274,7 +282,7 @@ class GravityManGame {
     this.ctx.fillText(`Level: ${this.currentLevel}`, 10, 20);
     this.ctx.fillText(`Mode: ${this.gameMode}`, 10, 35);
     
-    if (!this.isRunning) {
+    if (!this.isRunning && !this.splashHidden) {
       this.ctx.fillText('Press SPACE or tap to start', 10, 50);
     }
   }
