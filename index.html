@@ -23,5 +23,12 @@
     <canvas id="gameCanvas" width="240" height="282"></canvas>
     <script src="src/js/player.js"></script>
     <script src="src/js/game.js"></script>
+    <script>
+        // Initialize game when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const game = new GravityManGame();
+            console.log('Gravity-Man game initialized');
+        });
+    </script>
 </body>
 </html>
