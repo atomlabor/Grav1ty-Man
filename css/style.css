@@ -1,0 +1,202 @@
+/* Gravity-Man CSS - Optimiert für Rabbit R1 */
+
+:root {
+  --r1-orange: #ff6b35;
+  --r1-dark: #1a1a1a;
+  --r1-light: #f5f5f5;
+  --r1-accent: #00d4aa;
+  --game-width: 240px;
+  --game-height: 282px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--r1-dark);
+  color: var(--r1-light);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.game-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 320px;
+  text-align: center;
+}
+
+h1 {
+  color: var(--r1-orange);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.subtitle {
+  color: var(--r1-accent);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+/* Game Canvas - Rabbit R1 optimiert */
+#gameCanvas {
+  border: 2px solid var(--r1-orange);
+  border-radius: 8px;
+  background: #000;
+  margin: 20px 0;
+  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+  image-rendering: pixelated; /* Für Pixel-Art */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Rabbit R1 Informationen */
+.r1-info {
+  background: rgba(0, 212, 170, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 20px 0;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+.r1-info h3 {
+  color: var(--r1-accent);
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.r1-info p {
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.r1-info ul {
+  text-align: left;
+  list-style: none;
+  padding-left: 15px;
+}
+
+.r1-info li {
+  font-size: 0.8rem;
+  margin: 5px 0;
+  position: relative;
+}
+
+.r1-info li::before {
+  content: '•';
+  color: var(--r1-accent);
+  position: absolute;
+  left: -15px;
+}
+
+/* Steuerung */
+.controls {
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.controls h3 {
+  color: var(--r1-orange);
+  margin-bottom: 10px;
+}
+
+.controls p {
+  font-size: 0.85rem;
+  margin: 5px 0;
+}
+
+/* Game Status */
+#gameStatus {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+#gameStatus span {
+  color: var(--r1-light);
+}
+
+#currentLevel, #gameMode {
+  color: var(--r1-accent);
+  font-weight: bold;
+}
+
+/* Responsive für kleine Bildschirme */
+@media (max-width: 360px) {
+  .game-container {
+    padding: 15px;
+    margin: 10px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  #gameCanvas {
+    transform: scale(0.9);
+    transform-origin: center;
+  }
+}
+
+/* Touch-optimierte Buttons für Rabbit R1 */
+.touch-controls {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.touch-btn {
+  background: var(--r1-orange);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  touch-action: manipulation;
+}
+
+.touch-btn:hover {
+  background: #e55a2b;
+  transform: translateY(-1px);
+}
+
+.touch-btn:active {
+  transform: translateY(0);
+  background: #cc4a1f;
+}
+
+/* Loading Animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.loading {
+  animation: pulse 2s infinite;
+}
