@@ -57,7 +57,6 @@ class GravityManGame {
   constructor() {
     this.canvas = document.getElementById('gameCanvas') || this.createCanvas();
     this.ctx = this.canvas.getContext('2d');
-
     // Force exact Rabbit R1 viewport and top alignment
     this.canvas.width = 240;
     this.canvas.height = 282;
@@ -66,6 +65,13 @@ class GravityManGame {
     this.canvas.style.display = 'block';
     this.canvas.style.margin = '0 auto 0 auto';
     this.canvas.style.objectFit = 'none';
+
+    // Splash image state
+    this.splashImage = new Image();
+    this.splashLoaded = false;
+    this.splashImage.onload = () => { this.splashLoaded = true; };
+    // Assume image is placed in src/assets/grav1tyman.png (relative when hosted together)
+    this.splashImage.src = typeof GRAVITY_SPLASH_SRC !== 'undefined' ? GRAVITY_SPLASH_SRC : 'src/assets/grav1tyman.png';
 
     this.gameMode = 'splash';
     this.isPaused = false;
@@ -140,7 +146,6 @@ class GravityManGame {
           break;
       }
     }, { passive: false });
-
     // Mouse/Touch controls: start immediately and reliably on tap/click
     const startOnPointer = () => {
       if (this.gameMode === 'splash') {
@@ -198,7 +203,7 @@ class GravityManGame {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
     if (this.gameMode === 'splash') {
-      this.renderSplashScreen();
+      this.renderImageSplashScreen();
     } else {
       this.renderBackground();
       
@@ -219,38 +224,47 @@ class GravityManGame {
       this.renderOverlayAndPanel();
     }
   }
-  
-  renderSplashScreen() {
+
+  // New: image-based splash screen using grav1tyman.png
+  renderImageSplashScreen() {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
-    // Background gradient stripes
+
+    // Solid dark background
     ctx.fillStyle = '#0d0d0f';
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#121217';
-    for (let y = 0; y < h; y += 3) {
-      ctx.fillRect(0, y, w, 1);
-    }
-    // Simple logo graphic
-    ctx.save();
-    ctx.translate(w/2, 96);
-    ctx.fillStyle = '#4A90E2';
-    ctx.fillRect(-36, -36, 72, 72);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-12, -28, 24, 56);
-    ctx.restore();
-    
-    // Title text
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 18px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('GRAVITY MAN', w/2, 160);
 
-    // Instructions
+    // If image loaded, draw centered and scaled to fit with aspect preserved
+    if (this.splashLoaded) {
+      const iw = this.splashImage.naturalWidth || this.splashImage.width;
+      const ih = this.splashImage.naturalHeight || this.splashImage.height;
+      const scale = Math.min(w / iw, (h - 48) / ih); // leave room for overlay text
+      const dw = Math.round(iw * scale);
+      const dh = Math.round(ih * scale);
+      const dx = Math.round((w - dw) / 2);
+      const dy = Math.round((h - dh) / 2) - 8; // slight lift for text below
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(this.splashImage, dx, dy, dw, dh);
+    } else {
+      // Loading placeholder
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#888';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Loading…', w/2, h/2);
+      ctx.textAlign = 'left';
+    }
+
+    // Overlay white instruction text
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 12px monospace';
-    ctx.fillText('TAP / SPACE / PTT TO START', w/2, h - 36);
+    ctx.textAlign = 'center';
+    ctx.fillText('TAP / SPACE / PTT TO START', w/2, h - 28);
     ctx.font = '10px monospace';
-    ctx.fillText('Tilt to change gravity • Arrows/Swipe OK', w/2, h - 20);
+    ctx.fillText('Tilt to change gravity • Arrows/Swipe OK', w/2, h - 14);
     ctx.textAlign = 'left';
   }
   
