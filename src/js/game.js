@@ -12,7 +12,7 @@ class GravityManGame {
     this.isPaused = false;
     this.currentLevel = 1;
     this.gameMode = 'normal'; // 'normal' oder 'hard'
-    this.splashHidden = false; // Track if splash has been hidden after tap
+    this.showSplash = true; // Show splash at start
     
     // Frame control
     this.lastFrameTime = 0;
@@ -23,9 +23,7 @@ class GravityManGame {
     this.splashLoaded = false;
     this.splashImage.onload = () => {
       this.splashLoaded = true;
-      // Render splash screen immediately when image is loaded
-      this.renderSplash();
-      // Continue game loop to show splash
+      // Start game loop to show splash
       this.gameLoop();
     };
     this.splashImage.src = './grav1tyman.png';
@@ -34,7 +32,7 @@ class GravityManGame {
     this.initializeComponents();
     this.setupEventHandlers();
     
-    // Start with splash screen
+    // Start game loop
     this.gameLoop();
   }
   
@@ -92,9 +90,9 @@ class GravityManGame {
   handleKeyDown(e) {
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!this.isRunning) {
+      if (!this.isRunning && this.showSplash) {
         this.start();
-      } else {
+      } else if (this.isRunning) {
         this.togglePause();
       }
     } else if (e.code === 'KeyR') {
@@ -125,19 +123,21 @@ class GravityManGame {
   }
   
   handleCanvasClick(e) {
-    if (!this.isRunning) {
+    if (!this.isRunning && this.showSplash) {
       this.start();
       return;
     }
-    this.handleCanvasInput(e);
+    if (this.isRunning) {
+      this.handleCanvasInput(e);
+    }
   }
   
   handleCanvasTouch(e) {
-    if (!this.isRunning) {
+    if (!this.isRunning && this.showSplash) {
       this.start();
       return;
     }
-    if (e.touches.length > 0) {
+    if (this.isRunning && e.touches.length > 0) {
       this.handleCanvasInput(e.touches[0]);
     }
   }
@@ -159,8 +159,8 @@ class GravityManGame {
     if (this.isRunning) return;
     this.isRunning = true;
     this.isPaused = false;
-    this.splashHidden = true; // Hide splash when game starts
-    this.gameLoop();
+    this.showSplash = false; // Hide splash completely when game starts
+    console.log('Game started - splash hidden');
   }
   
   togglePause() {
@@ -171,9 +171,9 @@ class GravityManGame {
   restart() {
     this.isRunning = false;
     this.isPaused = false;
-    this.splashHidden = false; // Show splash again on restart
-    this.levels.load(this.currentLevel);
-    this.start();
+    this.showSplash = true; // Show splash again on restart
+    this.levels?.load(this.currentLevel);
+    console.log('Game restarted - splash visible');
   }
   
   toggleGameMode() {
@@ -182,18 +182,16 @@ class GravityManGame {
   }
   
   gameLoop(currentTime = 0) {
-    // Only show splash if game is not running AND splash hasn't been hidden
-    if (!this.isRunning && !this.splashHidden) {
+    // Always render - either splash or game
+    if (!this.isRunning && this.showSplash) {
       this.renderSplash();
-      requestAnimationFrame((t) => this.gameLoop(t));
-      return;
-    }
-    
-    const deltaTime = currentTime - this.lastFrameTime;
-    if (deltaTime >= this.frameInterval) {
-      this.update(deltaTime);
-      this.render();
-      this.lastFrameTime = currentTime;
+    } else if (this.isRunning) {
+      const deltaTime = currentTime - this.lastFrameTime;
+      if (deltaTime >= this.frameInterval) {
+        this.update(deltaTime);
+        this.render();
+        this.lastFrameTime = currentTime;
+      }
     }
     
     requestAnimationFrame((t) => this.gameLoop(t));
@@ -215,55 +213,56 @@ class GravityManGame {
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // Don't render splash if it has been hidden
-    if (!this.isRunning && !this.splashHidden) {
-      this.renderSplash();
-      return;
-    }
-    
     if (this.isPaused) {
       this.renderPauseScreen();
       return;
     }
     
-    // Minimalist monochrome background pattern for retro feel
-    this.renderBackground();
-    
-    this.levels?.render(this.ctx);
-    this.enemies?.render(this.ctx);
-    this.player?.render(this.ctx);
-    
-    this.renderUI();
+    // Only render game content when actually running (splash is hidden)
+    if (this.isRunning && !this.showSplash) {
+      // Minimalist monochrome background pattern for retro feel
+      this.renderBackground();
+      
+      this.levels?.render(this.ctx);
+      this.enemies?.render(this.ctx);
+      this.player?.render(this.ctx);
+      
+      this.renderUI();
+    }
   }
   
   renderSplash() {
-    // Don't render splash if it has been hidden
-    if (this.splashHidden) return;
+    // Only render splash if it should be shown
+    if (!this.showSplash) return;
     
     // Clear canvas with black background
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // Draw image centered, if loaded
+    // Draw centered splash image if loaded
     if (this.splashLoaded && this.splashImage.complete) {
       const imgW = this.splashImage.width;
       const imgH = this.splashImage.height;
       
-      // Scale image if it's larger than canvas
-      const scale = Math.min(this.canvas.width / imgW, (this.canvas.height - 60) / imgH, 1);
+      // Scale image to fit canvas while maintaining aspect ratio
+      const scale = Math.min(this.canvas.width / imgW, (this.canvas.height - 80) / imgH, 1);
       const w = Math.floor(imgW * scale);
       const h = Math.floor(imgH * scale);
       const x = Math.floor((this.canvas.width - w) / 2);
-      const y = Math.floor((this.canvas.height - h) / 2) - 20;
+      const y = Math.floor((this.canvas.height - h - 80) / 2);
       
       this.ctx.drawImage(this.splashImage, x, y, w, h);
     }
     
-    // Draw white overlay text "tap to start"
+    // Draw overlay instructions at bottom - fully inside canvas
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 16px monospace';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('tap to start', this.canvas.width / 2, this.canvas.height - 20);
+    this.ctx.fillText('TAP TO START', this.canvas.width / 2, this.canvas.height - 40);
+    
+    // Additional instructions for different input methods
+    this.ctx.font = '12px monospace';
+    this.ctx.fillText('(Touch • Space • Rabbit R1 PTT)', this.canvas.width / 2, this.canvas.height - 20);
     this.ctx.textAlign = 'left';
   }
   
@@ -281,13 +280,10 @@ class GravityManGame {
     this.ctx.font = '12px monospace';
     this.ctx.fillText(`Level: ${this.currentLevel}`, 10, 20);
     this.ctx.fillText(`Mode: ${this.gameMode}`, 10, 35);
-    
-    if (!this.isRunning && !this.splashHidden) {
-      this.ctx.fillText('Press SPACE or tap to start', 10, 50);
-    }
   }
   
   renderPauseScreen() {
+    // Semi-transparent overlay
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
@@ -295,6 +291,7 @@ class GravityManGame {
     this.ctx.font = 'bold 16px monospace';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
+    this.ctx.fillText('Press SPACE to continue', this.canvas.width / 2, this.canvas.height / 2 + 20);
     this.ctx.textAlign = 'left';
   }
   
@@ -326,6 +323,7 @@ class GravityManGame {
     if (el) el.textContent = this.gameMode.charAt(0).toUpperCase() + this.gameMode.slice(1);
   }
 }
+
 // Game Initialisierung wenn DOM geladen
 document.addEventListener('DOMContentLoaded', () => {
   // Expose Player globally if required for LevelManager
@@ -335,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   window.gravityManGame = new GravityManGame();
 });
+
 // Export für Module
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = GravityManGame;
