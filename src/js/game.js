@@ -11,7 +11,7 @@ class GravityManGame {
     this.isRunning = false;
     this.isPaused = false;
     this.currentLevel = 1;
-    this.gameMode = 'normal'; // 'normal' oder 'hard'
+    this.gameMode = 'normal'; // 'normal' or 'hard'
     this.showSplash = true; // Show splash at start
 
     // Input state
@@ -27,8 +27,6 @@ class GravityManGame {
     this.splashLoaded = false;
     this.splashImage.onload = () => {
       this.splashLoaded = true;
-      // Start game loop to show splash
-      this.gameLoop();
     };
     this.splashImage.src = './grav1tyman.png';
 
@@ -42,29 +40,27 @@ class GravityManGame {
 
   initializeComponents() {
     try {
-      if (typeof LevelManager !== 'undefined') {
-        this.levels = new LevelManager();
-        this.levels.load(this.currentLevel);
-      } else {
-        console.warn('LevelManager not available');
-      }
-
       if (typeof Player !== 'undefined') {
         this.player = new Player(50, 50);
       } else {
         console.warn('Player not available');
       }
-
       if (typeof GravitySystem !== 'undefined') {
         this.gravity = new GravitySystem();
       } else {
-        console.warn('GravitySystem not available');
+        // Minimal gravity fallback
+        this.gravity = {
+          dir: 'down',
+          changeDirection(dir) { this.dir = dir; },
+          update() {}
+        };
       }
-
+      if (typeof LevelManager !== 'undefined') {
+        this.levels = new LevelManager();
+        this.levels.load(this.currentLevel);
+      }
       if (typeof EnemySystem !== 'undefined') {
         this.enemies = new EnemySystem();
-      } else {
-        console.warn('EnemySystem not available');
       }
     } catch (error) {
       console.error('Error initializing components:', error);
@@ -81,11 +77,10 @@ class GravityManGame {
       e.preventDefault();
       this.handleCanvasTouch(e);
     }, { passive: false });
-
     // Prevent context menu on right-click
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Rabbit R1 PTT button (mapped to KeyboardEvent with code 'MediaPlayPause' on many builds) and generic 'Enter'
+    // Rabbit R1 PTT button (often MediaPlayPause) and Enter
     window.addEventListener('keydown', (e) => {
       if (!this.isRunning && this.showSplash && (e.code === 'MediaPlayPause' || e.code === 'Enter')) {
         e.preventDefault();
@@ -93,7 +88,7 @@ class GravityManGame {
       }
     });
 
-    // DeviceOrientation/Gyroscope listeners (Rabbit R1 and standard phones)
+    // DeviceOrientation/Gyroscope listeners (Rabbit R1 and phones)
     this.setupGyroListeners();
   }
 
@@ -102,13 +97,10 @@ class GravityManGame {
       if (this.gyroActive) return;
       const handler = (evt) => this.handleOrientation(evt);
       window.addEventListener('deviceorientation', handler);
-      // Some browsers use absolute orientation
       window.addEventListener('deviceorientationabsolute', handler);
       this.gyroActive = true;
-      console.log('Gyro active');
     };
 
-    // iOS-style permission
     try {
       const needPerm = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
       if (needPerm) {
@@ -118,21 +110,11 @@ class GravityManGame {
             if (res === 'granted') activate();
           } catch (e) { console.warn('Gyro permission denied', e); }
         };
-        // Request on first user gesture
         const once = () => { document.removeEventListener('click', once); document.removeEventListener('touchstart', once); ask(); };
         document.addEventListener('click', once, { once: true });
         document.addEventListener('touchstart', once, { once: true });
       } else if (typeof DeviceOrientationEvent !== 'undefined') {
         activate();
-      } else if ('AbsoluteOrientationSensor' in window || 'Gyroscope' in window) {
-        // Generic Sensors API fallback (DiceSim-style)
-        try {
-          // Simple tilt from alpha/beta/gamma via orientation if available later
-          window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
-          this.gyroActive = true;
-        } catch (e) {
-          console.warn('Generic sensor API not available', e);
-        }
       }
     } catch (e) {
       console.warn('Gyro setup error', e);
@@ -141,12 +123,8 @@ class GravityManGame {
 
   handleOrientation(event) {
     if (!this.isRunning || this.isPaused || !event) return;
-
-    // Normalize tilt: beta (front-back), gamma (left-right)
     const beta = typeof event.beta === 'number' ? event.beta : 0;   // -180..180
     const gamma = typeof event.gamma === 'number' ? event.gamma : 0; // -90..90
-
-    // Decide dominant axis with small deadzone
     const dead = 5;
     let dir = null;
     if (Math.abs(gamma) > Math.abs(beta)) {
@@ -156,7 +134,6 @@ class GravityManGame {
       if (beta > dead) dir = 'down';
       else if (beta < -dead) dir = 'up';
     }
-
     if (dir && dir !== this.lastTiltDir) {
       this.lastTiltDir = dir;
       this.gravity?.changeDirection(dir);
@@ -235,7 +212,6 @@ class GravityManGame {
     this.isRunning = true;
     this.isPaused = false;
     this.showSplash = false; // Hide splash completely when game starts
-    console.log('Game started - splash hidden');
   }
 
   togglePause() {
@@ -248,12 +224,10 @@ class GravityManGame {
     this.isPaused = false;
     this.showSplash = true; // Show splash again on restart
     this.levels?.load(this.currentLevel);
-    console.log('Game restarted - splash visible');
   }
 
   toggleGameMode() {
     this.gameMode = this.gameMode === 'normal' ? 'hard' : 'normal';
-    this.updateModeDisplay();
   }
 
   gameLoop(currentTime = 0) {
@@ -268,17 +242,14 @@ class GravityManGame {
         this.lastFrameTime = currentTime;
       }
     }
-
     requestAnimationFrame((t) => this.gameLoop(t));
   }
 
   update(deltaTime) {
     if (this.isPaused) return;
-
     this.player?.update(deltaTime, this.gravity, this.levels?.current);
     this.gravity?.update(deltaTime);
     this.enemies?.update(deltaTime);
-
     this.checkCollisions();
     this.checkLevelComplete();
   }
@@ -287,46 +258,34 @@ class GravityManGame {
     // Clear to pure black background
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
     if (this.isPaused) {
       this.renderPauseScreen();
       return;
     }
-
-    // Only render game content when actually running (splash is hidden)
     if (this.isRunning && !this.showSplash) {
-      // Minimalist monochrome background pattern for retro feel
       this.renderBackground();
-
       this.levels?.render(this.ctx);
       this.enemies?.render(this.ctx);
       this.player?.render(this.ctx);
-
-      this.renderUI();
     }
   }
 
   renderSplash() {
     if (!this.showSplash) return;
-
     // Clear canvas with black background
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
     // Draw centered splash image if loaded
     if (this.splashLoaded && this.splashImage.complete) {
       const imgW = this.splashImage.width;
       const imgH = this.splashImage.height;
-
       const scale = Math.min(this.canvas.width / imgW, (this.canvas.height - 80) / imgH, 1);
       const w = Math.floor(imgW * scale);
       const h = Math.floor(imgH * scale);
       const x = Math.floor((this.canvas.width - w) / 2);
       const y = Math.floor((this.canvas.height - h - 80) / 2);
-
       this.ctx.drawImage(this.splashImage, x, y, w, h);
     }
-
     // Overlay instructions fully inside canvas
     this.ctx.fillStyle = '#FFF';
     this.ctx.font = 'bold 16px monospace';
@@ -345,17 +304,9 @@ class GravityManGame {
     }
   }
 
-  renderUI() {
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '12px monospace';
-    this.ctx.fillText(`Level: ${this.currentLevel}`, 10, 20);
-    this.ctx.fillText(`Mode: ${this.gameMode}`, 10, 35);
-  }
-
   renderPauseScreen() {
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 16px monospace';
     this.ctx.textAlign = 'center';
@@ -369,37 +320,23 @@ class GravityManGame {
   checkLevelComplete() {
     if (this.player?.hasReachedGoal) {
       this.currentLevel += 1;
-      this.updateLevelDisplay();
-
-      if (!this.levels.levels.find(l => l.id === this.currentLevel)) {
+      if (!this.levels?.levels?.find?.(l => l.id === this.currentLevel)) {
         this.currentLevel = 1;
       }
-
-      this.levels.load(this.currentLevel);
+      this.levels?.load?.(this.currentLevel);
     }
-  }
-
-  updateLevelDisplay() {
-    const el = document.getElementById('currentLevel');
-    if (el) el.textContent = this.currentLevel;
-  }
-
-  updateModeDisplay() {
-    const el = document.getElementById('gameMode');
-    if (el) el.textContent = this.gameMode.charAt(0).toUpperCase() + this.gameMode.slice(1);
   }
 }
 
-// Game Initialisierung wenn DOM geladen
+// Initialize when DOM loaded
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.Player === 'undefined' && typeof Player !== 'undefined') {
     window.Player = Player;
   }
-
   window.gravityManGame = new GravityManGame();
 });
 
-// Export für Module
+// Export for modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = GravityManGame;
 }
