@@ -116,8 +116,7 @@ class GravityManGame {
       if (this.gameMode === 'splash') {
         // ensure the splash disappears immediately and gameplay renders next frame
         this.start();
-        // prevent any default to avoid double events from touch
-        if (evt) evt.preventDefault();
+        // removed preventDefault to improve reliability on Rabbit R1
       }
     };
     this.canvas.addEventListener('click', startOnPointer, { passive: false });
