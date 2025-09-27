@@ -1,4 +1,6 @@
-// LevelManager class to handle level creation and rendering
+// Gravity-Man game with splash graphic grav1tyman.png and Rabbit R1 controls
+// NOTE: This file replaces previous content to implement requested features.
+
 class LevelManager {
   constructor(canvasWidth, canvasHeight) {
     this.canvasWidth = canvasWidth;
@@ -8,346 +10,229 @@ class LevelManager {
   createTestLevel() {
     return {
       walls: [
-        // Border walls
-        { x: 0, y: 0, width: this.canvasWidth, height: 12 }, // top
-        { x: 0, y: this.canvasHeight - 12, width: this.canvasWidth, height: 12 }, // bottom
-        { x: 0, y: 0, width: 12, height: this.canvasHeight }, // left
-        { x: this.canvasWidth - 12, y: 0, width: 12, height: this.canvasHeight }, // right
-        
-        // Platforms
+        { x: 0, y: 0, width: this.canvasWidth, height: 12 },
+        { x: 0, y: this.canvasHeight - 12, width: this.canvasWidth, height: 12 },
+        { x: 0, y: 0, width: 12, height: this.canvasHeight },
+        { x: this.canvasWidth - 12, y: 0, width: 12, height: this.canvasHeight },
         { x: 24, y: 64, width: 96, height: 10 },
         { x: 140, y: 54, width: 64, height: 10 },
         { x: 180, y: 120, width: 72, height: 10 },
         { x: 48, y: 180, width: 120, height: 10 },
       ],
-      
       hazards: [
         { x: 60, y: 74, width: 30, height: 8 },
         { x: 160, y: 64, width: 30, height: 8 },
         { x: 120, y: 190, width: 60, height: 8 },
       ],
-      
       goal: { x: 200, y: 140, width: 18, height: 18 },
       start: { x: 20, y: 40 }
     };
   }
   render(ctx) {
     if (!this.current) return;
-    
-    // Render walls (platforms)
     ctx.fillStyle = '#4A90E2';
-    this.current.walls.forEach(wall => {
-      ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-    });
-    
-    // Render hazards
+    this.current.walls.forEach(w => ctx.fillRect(w.x, w.y, w.width, w.height));
     ctx.fillStyle = '#E74C3C';
-    this.current.hazards.forEach(hazard => {
-      ctx.fillRect(hazard.x, hazard.y, hazard.width, hazard.height);
-    });
-    
-    // Render goal
+    this.current.hazards.forEach(h => ctx.fillRect(h.x, h.y, h.width, h.height));
     ctx.fillStyle = '#2ECC71';
-    const goal = this.current.goal;
-    ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+    const g = this.current.goal;
+    ctx.fillRect(g.x, g.y, g.width, g.height);
   }
 }
-// GravityManGame class with integrated LevelManager
+
 class GravityManGame {
   constructor() {
     this.canvas = document.getElementById('gameCanvas') || this.createCanvas();
     this.ctx = this.canvas.getContext('2d');
-
-    // Force exact Rabbit R1 viewport and top alignment
-    this.canvas.width = 240;
-    this.canvas.height = 282;
-    this.canvas.style.width = '240px';
-    this.canvas.style.height = '282px';
-    this.canvas.style.display = 'block';
-    this.canvas.style.margin = '0 auto 0 auto';
-    this.canvas.style.objectFit = 'none';
+    this.canvas.width = 240; this.canvas.height = 282;
+    Object.assign(this.canvas.style, { width: '240px', height: '282px', display: 'block', margin: '0 auto', objectFit: 'none' });
 
     this.gameMode = 'splash';
     this.isPaused = false;
     this.hazardFlashUntil = 0;
-    
-    // Initialize level manager with fixed viewport size
+
+    // Splash image
+    this.splash = { img: new Image(), loaded: false };
+    this.splash.img.src = './grav1tyman.png';
+    this.splash.img.onload = () => { this.splash.loaded = true; };
+
+    // Level and player
     this.levels = new LevelManager(this.canvas.width, this.canvas.height);
-    
-    // Initialize player at start position if available
     if (typeof Player !== 'undefined') {
-      const startPos = this.levels.current.start;
-      this.player = new Player(startPos.x, startPos.y);
+      const s = this.levels.current.start;
+      this.player = new Player(s.x, s.y);
     }
-    
-    // Creations SDK mock
+
+    // Rabbit R1 SDK facade
     this.creations = {
       panelVisible: false,
-      setGravity: (direction) => {
-        if (this.player) {
-          this.player.setGravity(direction);
-        }
+      setGravity: (dir) => { if (this.player?.setGravity) this.player.setGravity(dir); },
+      onPTT: (pressed) => { if (!pressed) return; if (this.gameMode === 'splash') this.start(); else this.togglePause(); },
+      onOrientation: (a,b,g) => {
+        if (!this.player) return;
+        const ax = Math.abs(g||0), ay = Math.abs(b||0);
+        if (ax > ay) this.creations.setGravity((g||0) > 8 ? 'right' : (g||0) < -8 ? 'left' : this.player.gravityDir||'down');
+        else this.creations.setGravity((b||0) > 8 ? 'down' : (b||0) < -8 ? 'up' : this.player.gravityDir||'down');
       }
     };
-    
+
     this.setupEventListeners();
     this.gameLoop();
   }
-  
+
   createCanvas() {
-    const canvas = document.createElement('canvas');
-    canvas.id = 'gameCanvas';
-    canvas.width = 240;
-    canvas.height = 282;
-    canvas.style.border = '1px solid #222';
-    canvas.style.display = 'block';
-    canvas.style.margin = '0 auto 0 auto';
-    document.body.appendChild(canvas);
-    return canvas;
+    const c = document.createElement('canvas');
+    c.id = 'gameCanvas'; c.width = 240; c.height = 282;
+    Object.assign(c.style, { border: '1px solid #222', display: 'block', margin: '0 auto' });
+    document.body.appendChild(c); return c;
   }
-  
+
   setupEventListeners() {
-    // Keyboard controls incl. immediate start via SPACE
     document.addEventListener('keydown', (e) => {
-      switch(e.code) {
-        case 'Space':
-          e.preventDefault();
-          if (this.gameMode === 'splash') {
-            this.start();
-          } else if (this.gameMode === 'playing') {
-            this.togglePause();
-          }
-          break;
-        case 'KeyB':
-          this.restart();
-          break;
-        case 'KeyA':
-          if (this.player && this.gameMode === 'playing') {
-            this.player.boost();
-          }
-          break;
-        case 'ArrowUp':
-          this.creations.setGravity('up');
-          break;
-        case 'ArrowDown':
-          this.creations.setGravity('down');
-          break;
-        case 'ArrowLeft':
-          this.creations.setGravity('left');
-          break;
-        case 'ArrowRight':
-          this.creations.setGravity('right');
-          break;
+      switch (e.code) {
+        case 'Space': e.preventDefault(); if (this.gameMode==='splash') this.start(); else this.togglePause(); break;
+        case 'KeyB': this.restart(); break;
+        case 'KeyA': if (this.gameMode==='playing') this.player?.boost?.(); break;
+        case 'ArrowUp': this.creations.setGravity('up'); break;
+        case 'ArrowDown': this.creations.setGravity('down'); break;
+        case 'ArrowLeft': this.creations.setGravity('left'); break;
+        case 'ArrowRight': this.creations.setGravity('right'); break;
       }
     }, { passive: false });
 
-    // Mouse/Touch controls: start immediately and reliably on tap/click
-    const startOnPointer = () => {
-      if (this.gameMode === 'splash') {
-        this.start();
-      }
-    };
+    const startOnPointer = () => { if (this.gameMode === 'splash') this.start(); };
     this.canvas.addEventListener('click', startOnPointer, { passive: true });
     this.canvas.addEventListener('pointerdown', startOnPointer, { passive: true });
-    this.canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // ensure no double events and reliable start
-      startOnPointer();
-    }, { passive: false });
-  }
-  
-  start() {
-    this.gameMode = 'playing';
-    this.isPaused = false;
-    if (this.player && this.levels.current) {
-      const startPos = this.levels.current.start;
-      this.player.x = startPos.x;
-      this.player.y = startPos.y;
-      this.player.vx = 0;
-      this.player.vy = 0;
-      if (this.player.setGravity) this.player.setGravity('down');
+    this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startOnPointer(); }, { passive: false });
+
+    // Swipe to set gravity
+    let t0 = null;
+    this.canvas.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; t0 = { x:t.clientX, y:t.clientY }; }, { passive: true });
+    this.canvas.addEventListener('touchend', (e) => {
+      if (!t0) return; const t = e.changedTouches[0]; const dx=t.clientX-t0.x, dy=t.clientY-t0.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 12) {
+        if (Math.abs(dx) > Math.abs(dy)) this.creations.setGravity(dx>0?'right':'left');
+        else this.creations.setGravity(dy>0?'down':'up');
+      }
+      t0 = null;
+    }, { passive: true });
+
+    // Gyro
+    if ('DeviceOrientationEvent' in window) {
+      window.addEventListener('deviceorientation', (ev) => this.creations.onOrientation(ev.alpha, ev.beta, ev.gamma));
     }
-  }
-  
-  restart() {
-    this.gameMode = 'splash';
-    this.isPaused = false;
-    this.hazardFlashUntil = 0;
-  }
-  
-  togglePause() {
-    if (this.gameMode === 'playing') {
-      this.isPaused = !this.isPaused;
-    }
-  }
-  
-  gameLoop() {
-    this.update();
-    this.render();
-    requestAnimationFrame(() => this.gameLoop());
-  }
-  
-  update() {
-    if (this.gameMode === 'playing' && !this.isPaused && this.player) {
-      this.player.update(this.levels.current);
-      this.checkCollisions();
-      this.checkLevelComplete();
-    }
-  }
-  
-  render() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    if (this.gameMode === 'splash') {
-      this.renderSplashScreen();
+
+    // Rabbit R1 SDK if present
+    const sdk = window.creations || window.r1 || window.rabbit || null;
+    if (sdk?.on) {
+      try {
+        sdk.on('ptt', (pressed) => this.creations.onPTT(pressed));
+        sdk.on('panel', (visible) => { this.creations.panelVisible = !!visible; });
+        sdk.on('orientation', ({alpha,beta,gamma}) => this.creations.onOrientation(alpha,beta,gamma));
+      } catch(_){}
     } else {
+      document.addEventListener('keydown', (e) => { if (e.code==='KeyP') this.creations.onPTT(true); });
+    }
+  }
+
+  start() {
+    this.gameMode = 'playing'; this.isPaused = false;
+    if (this.player && this.levels.current) {
+      const s = this.levels.current.start; this.player.x=s.x; this.player.y=s.y; this.player.vx=0; this.player.vy=0;
+      this.player.setGravity?.('down');
+    }
+  }
+  restart() { this.gameMode='splash'; this.isPaused=false; this.hazardFlashUntil=0; }
+  togglePause() { if (this.gameMode==='playing') this.isPaused=!this.isPaused; }
+
+  gameLoop() { this.update(); this.render(); requestAnimationFrame(()=>this.gameLoop()); }
+
+  update() {
+    if (this.gameMode==='playing' && !this.isPaused && this.player) {
+      this.player.update(this.levels.current);
+      this.checkCollisions(); this.checkLevelComplete();
+    }
+  }
+
+  render() {
+    this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    if (this.gameMode==='splash') this.renderSplashScreen();
+    else {
       this.renderBackground();
-      
-      // Render level
-      if (this.levels) {
-        this.levels.render(this.ctx);
-      }
-      
-      // Render player
-      if (this.player) {
-        this.player.render(this.ctx);
-      }
-      
-      if (this.isPaused) {
-        this.renderPauseScreen();
-      }
-      
+      this.levels?.render(this.ctx);
+      this.player?.render(this.ctx);
+      if (this.isPaused) this.renderPauseScreen();
       this.renderOverlayAndPanel();
     }
   }
-  
-  renderSplashScreen() {
-    const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    // Background gradient stripes
-    ctx.fillStyle = '#0d0d0f';
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#121217';
-    for (let y = 0; y < h; y += 3) {
-      ctx.fillRect(0, y, w, 1);
-    }
-    // Simple logo graphic
-    ctx.save();
-    ctx.translate(w/2, 96);
-    ctx.fillStyle = '#4A90E2';
-    ctx.fillRect(-36, -36, 72, 72);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-12, -28, 24, 56);
-    ctx.restore();
-    
-    // Title text
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 18px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('GRAVITY MAN', w/2, 160);
 
-    // Instructions
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText('TAP / SPACE / PTT TO START', w/2, h - 36);
-    ctx.font = '10px monospace';
-    ctx.fillText('Tilt to change gravity • Arrows/Swipe OK', w/2, h - 20);
-    ctx.textAlign = 'left';
+  renderSplashScreen() {
+    const ctx=this.ctx, w=this.canvas.width, h=this.canvas.height;
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+    if (this.splash.loaded) {
+      const img=this.splash.img, iw=img.width, ih=img.height;
+      const scale=Math.min(w/iw,(h-40)/ih);
+      const dw=Math.floor(iw*scale), dh=Math.floor(ih*scale);
+      const dx=Math.floor((w-dw)/2), dy=Math.floor((h-dh)/2)-4;
+      ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+      ctx.drawImage(img,dx,dy,dw,dh);
+    } else {
+      ctx.fillStyle='#222'; ctx.fillRect(20,20,w-40,h-60);
+      ctx.fillStyle='#888'; ctx.font='12px monospace'; ctx.textAlign='center';
+      ctx.fillText('Loading splash...', w/2, h/2); ctx.textAlign='left';
+    }
+    ctx.fillStyle='#FFF'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('GRAVITY MAN', w/2, h-28);
+    ctx.font='10px monospace';
+    ctx.fillText('Tap/Space/PTT to Start • Tilt/Arrows/Swipe control', w/2, h-14);
+    ctx.textAlign='left';
   }
-  
+
   renderBackground() {
-    const ctx = this.ctx;
-    ctx.fillStyle = '#111111';
-    for (let y = 0; y < this.canvas.height; y += 2) {
-      ctx.fillRect(0, y, this.canvas.width, 1);
-    }
+    const ctx=this.ctx; ctx.fillStyle='#111';
+    for (let y=0;y<this.canvas.height;y+=2) ctx.fillRect(0,y,this.canvas.width,1);
   }
-  
+
   renderPauseScreen() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 14px monospace';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.fillText('Press SPACE/PTT to continue', this.canvas.width / 2, this.canvas.height / 2 + 16);
-    this.ctx.textAlign = 'left';
+    const c=this.canvas, ctx=this.ctx; ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#FFF'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('PAUSED', c.width/2, c.height/2);
+    ctx.fillText('Press SPACE/PTT to continue', c.width/2, c.height/2+16);
+    ctx.textAlign='left';
   }
-  
-  // Simple AABB collision helpers already in Player, here we add hazard flash
+
   checkCollisions() {
-    const lvl = this.levels?.current;
-    if (!lvl || !this.player) return;
-    
-    // Visual hazard feedback flash
-    if (lvl.hazards.some(h => this.player.checkCollision(h))) {
-      // brief overlay flash
-      this.hazardFlashUntil = performance.now() + 60;
-    }
+    const lvl=this.levels?.current; if (!lvl||!this.player) return;
+    if (lvl.hazards.some(h=>this.player.checkCollision?.(h))) this.hazardFlashUntil=performance.now()+60;
   }
-  
   checkLevelComplete() {
-    const g = this.levels?.current?.goal;
-    if (g && this.player?.checkCollision(g)) {
-      if (this.player.reachGoal) this.player.reachGoal();
-      // restart to splash after short delay
-      setTimeout(() => this.restart(), 600);
-    }
+    const g=this.levels?.current?.goal; if (g && this.player?.checkCollision?.(g)) { this.player.reachGoal?.(); setTimeout(()=>this.restart(),600); }
   }
-  
-  // Draw SDK-like overlay and a panel in-canvas (emulator style)
+
   renderOverlayAndPanel() {
-    const ctx = this.ctx;
-    const now = performance.now();
-    
-    // hazard flash
-    if (this.hazardFlashUntil && now < this.hazardFlashUntil) {
-      ctx.fillStyle = 'rgba(255,0,0,0.25)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-    
-    // Top overlay bar
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(0, 0, this.canvas.width, 12);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '9px monospace';
-    ctx.textBaseline = 'middle';
+    const ctx=this.ctx, now=performance.now();
+    if (this.hazardFlashUntil && now<this.hazardFlashUntil) { ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }
+    ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,this.canvas.width,12);
+    ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle';
     ctx.fillText(`Mode:${this.gameMode.toUpperCase()}`, 4, 6);
-    ctx.textAlign = 'right';
-    ctx.fillText('A Boost  B Restart  PTT Pause', this.canvas.width - 4, 6);
-    ctx.textAlign = 'left';
-    
-    // Bottom panel toggle state similar to emulator
-    const showPanel = this.isPaused || this.creations.panelVisible;
+    ctx.textAlign='right'; ctx.fillText('A Boost  B Restart  PTT Pause', this.canvas.width-4, 6); ctx.textAlign='left';
+    const showPanel=this.isPaused || this.creations.panelVisible;
     if (showPanel) {
-      const h = 48;
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.fillRect(0, this.canvas.height - h, this.canvas.width, h);
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.strokeRect(0.5, this.canvas.height - h + 0.5, this.canvas.width - 1, h - 1);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '9px monospace';
-      ctx.fillText('Panel:', 6, this.canvas.height - h + 12);
-      ctx.fillText('- Tilt: change gravity', 12, this.canvas.height - h + 22);
-      ctx.fillText('- Arrows/Swipe: gravity', 12, this.canvas.height - h + 32);
-      ctx.fillText('- A: Boost  B: Restart', 12, this.canvas.height - h + 42);
+      const h=48; ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(0,this.canvas.height-h,this.canvas.width,h);
+      ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.strokeRect(0.5,this.canvas.height-h+0.5,this.canvas.width-1,h-1);
+      ctx.fillStyle='#FFF'; ctx.font='9px monospace';
+      ctx.fillText('Panel:', 6, this.canvas.height-h+12);
+      ctx.fillText('- Tilt: change gravity', 12, this.canvas.height-h+22);
+      ctx.fillText('- Arrows/Swipe: gravity', 12, this.canvas.height-h+32);
+      ctx.fillText('- A: Boost  B: Restart', 12, this.canvas.height-h+42);
     }
   }
 }
-// Initialize when DOM loaded
+
 document.addEventListener('DOMContentLoaded', () => {
-  // Ensure viewport size even if embedded elsewhere
-  const c = document.getElementById('gameCanvas');
-  if (c) {
-    c.width = 240; c.height = 282;
-    c.style.width = '240px';
-    c.style.height = '282px';
-  }
-  if (typeof window.Player === 'undefined' && typeof Player !== 'undefined') {
-    window.Player = Player;
-  }
+  const c=document.getElementById('gameCanvas'); if (c) { c.width=240; c.height=282; c.style.width='240px'; c.style.height='282px'; }
+  if (typeof window.Player==='undefined' && typeof Player!=='undefined') window.Player=Player;
   window.gravityManGame = new GravityManGame();
 });
-// Export for modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = GravityManGame;
-}
+
+if (typeof module!=='undefined' && module.exports) module.exports = GravityManGame;
