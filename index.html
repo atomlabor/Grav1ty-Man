@@ -1,29 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Gravity-Man</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            overflow: hidden;
-        }
-        #gameCanvas {
-            display: block;
-            margin: 0;
-            padding: 0;
-            background-color: #87CEEB;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grav1ty Man (Rabbit R1 Edition)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      height: 100%;
+      overflow: hidden;
+    }
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      width: 100vw;
+      height: 100vh;
+      background: #000; /* game.js paints everything */
+      touch-action: manipulation;
+    }
+  </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="240" height="282"></canvas>
-    
-    <!-- JavaScript Module -->
-    <script src="src/js/player.js"></script>
-    <script src="src/js/game.js"></script>
+  <canvas id="gameCanvas" width="240" height="282"></canvas>
+  <script src="src/js/player.js"></script>
+  <script src="src/js/game.js"></script>
 </body>
 </html>
