@@ -1,23 +1,37 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no"/>
   <title>Grav1ty Man (Rabbit R1 Edition)</title>
   <style>
-    html, body {
+    * {
       margin: 0;
       padding: 0;
-      background: #000;
-      height: 100%;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 240px;
+      height: 282px;
+      margin: 0;
+      padding: 0;
       overflow: hidden;
+      background: #000;
     }
     #gameCanvas {
       display: block;
-      margin: 0 auto;
-      width: 100vw;
-      height: 100vh;
-      background: #000; /* game.js paints everything */
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 240px;
+      height: 282px;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
       touch-action: manipulation;
     }
   </style>
