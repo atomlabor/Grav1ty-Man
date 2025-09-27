@@ -65,14 +65,11 @@ class GravityManGame {
     this.canvas.style.display = 'block';
     this.canvas.style.margin = '0 auto 0 auto';
     this.canvas.style.objectFit = 'none';
-
     // Splash image state
     this.splashImage = new Image();
     this.splashLoaded = false;
     this.splashImage.onload = () => { this.splashLoaded = true; };
-    // Assume image is placed in src/assets/grav1tyman.png (relative when hosted together)
     this.splashImage.src = typeof GRAVITY_SPLASH_SRC !== 'undefined' ? GRAVITY_SPLASH_SRC : 'src/assets/grav1tyman.png';
-
     this.gameMode = 'splash';
     this.isPaused = false;
     this.hazardFlashUntil = 0;
@@ -113,17 +110,22 @@ class GravityManGame {
   }
   
   setupEventListeners() {
-    // Keyboard controls incl. immediate start via SPACE
+    // Touch/click only to start from splash per requirement
+    const startOnPointer = () => {
+      if (this.gameMode === 'splash') {
+        this.start();
+      }
+    };
+    this.canvas.addEventListener('click', startOnPointer, { passive: true });
+    this.canvas.addEventListener('pointerdown', startOnPointer, { passive: true });
+    this.canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // ensure no double events and reliable start
+      startOnPointer();
+    }, { passive: false });
+
+    // Keep keyboard for gameplay, but do NOT start from splash with SPACE
     document.addEventListener('keydown', (e) => {
       switch(e.code) {
-        case 'Space':
-          e.preventDefault();
-          if (this.gameMode === 'splash') {
-            this.start();
-          } else if (this.gameMode === 'playing') {
-            this.togglePause();
-          }
-          break;
         case 'KeyB':
           this.restart();
           break;
@@ -144,19 +146,13 @@ class GravityManGame {
         case 'ArrowRight':
           this.creations.setGravity('right');
           break;
+        case 'Space':
+          if (this.gameMode === 'playing') {
+            e.preventDefault();
+            this.togglePause();
+          }
+          break;
       }
-    }, { passive: false });
-    // Mouse/Touch controls: start immediately and reliably on tap/click
-    const startOnPointer = () => {
-      if (this.gameMode === 'splash') {
-        this.start();
-      }
-    };
-    this.canvas.addEventListener('click', startOnPointer, { passive: true });
-    this.canvas.addEventListener('pointerdown', startOnPointer, { passive: true });
-    this.canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // ensure no double events and reliable start
-      startOnPointer();
     }, { passive: false });
   }
   
@@ -224,47 +220,32 @@ class GravityManGame {
       this.renderOverlayAndPanel();
     }
   }
-
-  // New: image-based splash screen using grav1tyman.png
+  // Image-based splash screen using grav1tyman.png with minimal overlay
   renderImageSplashScreen() {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
-
     // Solid dark background
     ctx.fillStyle = '#0d0d0f';
     ctx.fillRect(0, 0, w, h);
-
-    // If image loaded, draw centered and scaled to fit with aspect preserved
+    // Draw image centered and scaled
     if (this.splashLoaded) {
       const iw = this.splashImage.naturalWidth || this.splashImage.width;
       const ih = this.splashImage.naturalHeight || this.splashImage.height;
-      const scale = Math.min(w / iw, (h - 48) / ih); // leave room for overlay text
+      const scale = Math.min(w / iw, (h - 40) / ih);
       const dw = Math.round(iw * scale);
       const dh = Math.round(ih * scale);
       const dx = Math.round((w - dw) / 2);
-      const dy = Math.round((h - dh) / 2) - 8; // slight lift for text below
+      const dy = Math.round((h - dh) / 2) - 6;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(this.splashImage, dx, dy, dw, dh);
-    } else {
-      // Loading placeholder
-      ctx.fillStyle = '#222';
-      ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = '#888';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('Loading…', w/2, h/2);
-      ctx.textAlign = 'left';
     }
-
-    // Overlay white instruction text
+    // Overlay text: Touch to start (only)
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('TAP / SPACE / PTT TO START', w/2, h - 28);
-    ctx.font = '10px monospace';
-    ctx.fillText('Tilt to change gravity • Arrows/Swipe OK', w/2, h - 14);
+    ctx.fillText('Touch to start', w/2, h - 18);
     ctx.textAlign = 'left';
   }
   
@@ -292,9 +273,7 @@ class GravityManGame {
     const lvl = this.levels?.current;
     if (!lvl || !this.player) return;
     
-    // Visual hazard feedback flash
     if (lvl.hazards.some(h => this.player.checkCollision(h))) {
-      // brief overlay flash
       this.hazardFlashUntil = performance.now() + 60;
     }
   }
@@ -303,23 +282,18 @@ class GravityManGame {
     const g = this.levels?.current?.goal;
     if (g && this.player?.checkCollision(g)) {
       if (this.player.reachGoal) this.player.reachGoal();
-      // restart to splash after short delay
       setTimeout(() => this.restart(), 600);
     }
   }
   
-  // Draw SDK-like overlay and a panel in-canvas (emulator style)
+  // Overlay and panel during gameplay
   renderOverlayAndPanel() {
     const ctx = this.ctx;
     const now = performance.now();
-    
-    // hazard flash
     if (this.hazardFlashUntil && now < this.hazardFlashUntil) {
       ctx.fillStyle = 'rgba(255,0,0,0.25)';
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    
-    // Top overlay bar
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
     ctx.fillRect(0, 0, this.canvas.width, 12);
     ctx.fillStyle = '#FFFFFF';
@@ -329,8 +303,7 @@ class GravityManGame {
     ctx.textAlign = 'right';
     ctx.fillText('A Boost  B Restart  PTT Pause', this.canvas.width - 4, 6);
     ctx.textAlign = 'left';
-    
-    // Bottom panel toggle state similar to emulator
+
     const showPanel = this.isPaused || this.creations.panelVisible;
     if (showPanel) {
       const h = 48;
@@ -349,7 +322,6 @@ class GravityManGame {
 }
 // Initialize when DOM loaded
 document.addEventListener('DOMContentLoaded', () => {
-  // Ensure viewport size even if embedded elsewhere
   const c = document.getElementById('gameCanvas');
   if (c) {
     c.width = 240; c.height = 282;
