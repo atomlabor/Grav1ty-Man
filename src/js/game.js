@@ -69,7 +69,8 @@ class GravityManGame {
     this.splashImage = new Image();
     this.splashLoaded = false;
     this.splashImage.onload = () => { this.splashLoaded = true; };
-    this.splashImage.src = typeof GRAVITY_SPLASH_SRC !== 'undefined' ? GRAVITY_SPLASH_SRC : 'src/assets/grav1tyman.png';
+    // Use main directory splash image by default
+    this.splashImage.src = typeof GRAVITY_SPLASH_SRC !== 'undefined' ? GRAVITY_SPLASH_SRC : 'grav1tyman.png';
     this.gameMode = 'splash';
     this.isPaused = false;
     this.hazardFlashUntil = 0;
@@ -111,18 +112,17 @@ class GravityManGame {
   
   setupEventListeners() {
     // Touch/click only to start from splash per requirement
-    const startOnPointer = () => {
+    const startOnPointer = (evt) => {
       if (this.gameMode === 'splash') {
+        // ensure the splash disappears immediately and gameplay renders next frame
         this.start();
+        // prevent any default to avoid double events from touch
+        if (evt) evt.preventDefault();
       }
     };
-    this.canvas.addEventListener('click', startOnPointer, { passive: true });
-    this.canvas.addEventListener('pointerdown', startOnPointer, { passive: true });
-    this.canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // ensure no double events and reliable start
-      startOnPointer();
-    }, { passive: false });
-
+    this.canvas.addEventListener('click', startOnPointer, { passive: false });
+    this.canvas.addEventListener('pointerdown', startOnPointer, { passive: false });
+    this.canvas.addEventListener('touchstart', startOnPointer, { passive: false });
     // Keep keyboard for gameplay, but do NOT start from splash with SPACE
     document.addEventListener('keydown', (e) => {
       switch(e.code) {
@@ -303,7 +303,6 @@ class GravityManGame {
     ctx.textAlign = 'right';
     ctx.fillText('A Boost  B Restart  PTT Pause', this.canvas.width - 4, 6);
     ctx.textAlign = 'left';
-
     const showPanel = this.isPaused || this.creations.panelVisible;
     if (showPanel) {
       const h = 48;
