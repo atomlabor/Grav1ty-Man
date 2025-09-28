@@ -5,9 +5,11 @@ class GravityManGame {
     this.ctx = this.canvas?.getContext('2d');
     if (!this.canvas || !this.ctx) { console.error('Canvas/Context missing'); return; }
     this.ctx.imageSmoothingEnabled = false;
+    // Use last working base and only add Dalek sprite (enemies), Keycard sprite (parts), and spaceship background
     this.images = {
       splash: this.loadImage('grav1tyman-splash.png'),
       end: this.loadImage('endscreen.png'),
+      bg: this.loadImage('spaceship-bg.png'),
       player: null,
       enemy: this.loadImage('dalek.png'),
       part: this.loadImage('keycard.png')
@@ -37,7 +39,7 @@ class GravityManGame {
   nextLevel(){ if(this.levelIndex<this.levels.length-1) this.loadLevel(this.levelIndex+1); else this.state='end'; }
   restartLevel(){ const s=this.currentLevel.start; this.player?.reset?.(s.x,s.y); for(const p of this.currentLevel.parts) p.collected=false; this.collectedParts=0; this.goalOpen=false; this.gravity.direction='down'; }
   // -------- Levels (BW) --------
-  createLevels(){ const W=240, H=282; const enemy=(x,y,w=10,h=12,speed=0.07)=>({x,y,w,h,vx:0,vy:0,speed});
+  createLevels(){ const W=240, H=282; const enemy=(x,y,w=6,h=6,speed=0.07)=>({x,y,w,h,vx:0,vy:0,speed});
     const L1={ start:{x:12,y:12}, platforms:[ {x:0,y:H-12,width:W,height:12}, {x:36,y:220,width:60,height:6}, {x:120,y:160,width:80,height:6}, {x:24,y:100,width:60,height:6} ], hazards:[ {x:100,y:H-18,width:20,height:6} ], enemies:[ enemy(200,20) ], parts:[ {x:10,y:H-24,width:6,height:6}, {x:42,y:208,width:6,height:6}, {x:170,y:148,width:6,height:6}, {x:28,y:88,width:6,height:6}, {x:220,y:20,width:6,height:6}, {x:120,y:20,width:6,height:6}, {x:70,y:H-24,width:6,height:6}, {x:210,y:120,width:6,height:6} ], goal:{x:210,y:120,width:12,height:12} };
     const L2={ start:{x:12,y:H-24}, platforms:[ {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:60,y:220,width:120,height:6}, {x:60,y:160,width:120,height:6}, {x:60,y:100,width:120,height:6} ], hazards:[ {x:120,y:214,width:12,height:6}, {x:120,y:154,width:12,height:6} ], enemies:[ enemy(120,40) ], parts:[ {x:66,y:210,width:6,height:6}, {x:174,y:150,width:6,height:6}, {x:66,y:90,width:6,height:6}, {x:10,y:10,width:6,height:6}, {x:220,y:10,width:6,height:6}, {x:10,y:H-24,width:6,height:6}, {x:220,y:H-24,width:6,height:6}, {x:120,y:60,width:6,height:6} ], goal:{x:W-24,y:12,width:12,height:12} };
     const L3={ start:{x:20,y:20}, platforms:[ {x:0,y:H-12,width:W,height:12}, {x:0,y:0,width:W,height:6}, {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:40,y:210,width:60,height:6}, {x:140,y:120,width:60,height:6} ], hazards:[ {x:100,y:H-18,width:20,height:6} ], enemies:[ enemy(120,30), enemy(200,200) ], parts:[ {x:46,y:198,width:6,height:6}, {x:146,y:108,width:6,height:6}, {x:206,y:20,width:6,height:6}, {x:20,y:20,width:6,height:6}, {x:220,y:H-24,width:6,height:6}, {x:120,y:60,width:6,height:6}, {x:70,y:150,width:6,height:6}, {x:200,y:120,width:6,height:6} ], goal:{x:W-24,y:H-24,width:12,height:12} };
@@ -64,25 +66,23 @@ class GravityManGame {
   }
   checkLevelProgress(){ if(!this.goalOpen) return; const g=this.currentLevel.goal; const pl={ x:this.player.x, y:this.player.y, width:this.player.w||6, height:this.player.h||6 }; if(this.aabb(pl,g)){ this.nextLevel(); } }
   drawSplash(){ this.ctx.fillStyle=this.colors.bg; this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height); if(this.images.splash?.complete) this.ctx.drawImage(this.images.splash,0,0,240,282); this.ctx.fillStyle=this.colors.fg; this.ctx.font='10px monospace'; this.ctx.textAlign='center'; this.ctx.fillText('Press SPACE to start', this.canvas.width/2, this.canvas.height-14); this.ctx.textAlign='left'; }
-  drawPlaying(){ const c=this.ctx, lvl=this.currentLevel; c.fillStyle=this.colors.bg; c.fillRect(0,0,this.canvas.width,this.canvas.height); // platforms
-    c.fillStyle=this.colors.platform; for(const p of lvl.platforms) c.fillRect(p.x,p.y,p.width,p.height); // hazards
+  drawPlaying(){ const c=this.ctx, lvl=this.currentLevel; // background
+    if(this.images.bg?.complete){ c.imageSmoothingEnabled=false; c.drawImage(this.images.bg, 0, 0, this.canvas.width, this.canvas.height); }
+    else { c.fillStyle=this.colors.bg; c.fillRect(0,0,this.canvas.width,this.canvas.height); }
+    // platforms
+    c.fillStyle=this.colors.platform; for(const p of lvl.platforms) c.fillRect(p.x,p.y,p.width,p.height);
+    // hazards
     c.fillStyle=this.colors.hazard; for(const h of lvl.hazards) { c.strokeStyle=this.colors.fg; c.strokeRect(h.x,h.y,h.width,h.height); }
-    // enemies: draw dalek sprite in grayscale, pixel-accurate
+    // enemies: Dalek sprite in grayscale at entity bounds (keep original w/h)
     for(const e of (lvl.enemies||[])){
-      const img=this.images.enemy;
-      if(img && img.complete){
-        c.imageSmoothingEnabled=false;
-        const ex=Math.round(e.x), ey=Math.round(e.y), ew=Math.round(e.w), eh=Math.round(e.h);
-        c.drawImage(img, ex, ey, ew, eh);
-        // ensure grayscale: use 'saturation' pass to zero color
-        const prev=c.globalCompositeOperation; c.globalCompositeOperation='saturation'; c.fillStyle='#000'; c.fillRect(ex,ey,ew,eh); c.globalCompositeOperation=prev;
-      } else { c.fillStyle=this.colors.enemy; c.fillRect(e.x,e.y,e.w,e.h); }
+      const img=this.images.enemy; const ex=Math.round(e.x), ey=Math.round(e.y), ew=Math.round(e.w), eh=Math.round(e.h);
+      if(img && img.complete){ c.imageSmoothingEnabled=false; c.drawImage(img, ex, ey, ew, eh); const prev=c.globalCompositeOperation; c.globalCompositeOperation='saturation'; c.fillStyle='#000'; c.fillRect(ex,ey,ew,eh); c.globalCompositeOperation=prev; }
+      else { c.fillStyle=this.colors.enemy; c.fillRect(e.x,e.y,e.w,e.h); }
     }
-    // parts: draw keycard sprite in grayscale where not collected
-    for(const part of lvl.parts){ if(part.collected) continue; const img=this.images.part; if(img && img.complete){ c.imageSmoothingEnabled=false; const px=Math.round(part.x), py=Math.round(part.y), pw=Math.round(part.width), ph=Math.round(part.height); c.drawImage(img, px, py, pw, ph); const prev=c.globalCompositeOperation; c.globalCompositeOperation='saturation'; c.fillStyle='#000'; c.fillRect(px,py,pw,ph); c.globalCompositeOperation=prev; } else { c.fillStyle=this.colors.part; c.fillRect(part.x,part.y,part.width,part.height); } }
+    // parts: Keycard sprite in grayscale where not collected
+    for(const part of lvl.parts){ if(part.collected) continue; const img=this.images.part; const px=Math.round(part.x), py=Math.round(part.y), pw=Math.round(part.width), ph=Math.round(part.height);
+      if(img && img.complete){ c.imageSmoothingEnabled=false; c.drawImage(img, px, py, pw, ph); const prev=c.globalCompositeOperation; c.globalCompositeOperation='saturation'; c.fillStyle='#000'; c.fillRect(px,py,pw,ph); c.globalCompositeOperation=prev; }
+      else { c.fillStyle=this.colors.part; c.fillRect(part.x,part.y,part.width,part.height); }
+    }
     // goal
-    const g=lvl.goal; if(this.goalOpen){ c.fillStyle=this.colors.goalOpen; c.fillRect(g.x,g.y,g.width,g.height); } else { c.strokeStyle=this.colors.fg; c.strokeRect(g.x,g.y,g.width,g.height); }
-    // player
-    this.player?.render?.(c);
-    // HUD
-    c
+    const g=lvl.goal; if(this.goalOpen){ c.fillStyle=this.colors.goalOpen; c.fillRect(g.x,g.y,g.width,g.height); } else { c
