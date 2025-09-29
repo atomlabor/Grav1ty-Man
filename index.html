@@ -24,6 +24,7 @@
       image-rendering: pixelated;
       touch-action: manipulation;
       z-index: 1;
+      visibility: visible !important;
     }
     .splash-overlay {
       position: absolute;
@@ -49,18 +50,18 @@
       margin-top: 10px;
       text-align: center;
     }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="240" height="282"></canvas>
+  <canvas id="gameCanvas" width="240" height="282" style="visibility: visible;"></canvas>
   
   <div class="splash-overlay" id="splashScreen">
     <img src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image" id="splashImage">
     <div class="splash-text">Tap / Space / Enter zum Start</div>
   </div>
   
-  <audio id="bgMusic" loop preload="auto" style="display:none">
+  <audio id="bgMusic" preload="auto" loop style="display:none">
     <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
   </audio>
   
@@ -88,7 +89,10 @@
     
     // Canvas anzeigen/fokussieren
     const canvas = document.getElementById('gameCanvas');
-    if (canvas) canvas.style.visibility = 'visible';
+    if (canvas) {
+      canvas.style.visibility = 'visible';
+      canvas.style.display = 'block';
+    }
     
     // Game erzeugen
     if (!game) {
