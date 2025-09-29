@@ -26,55 +26,13 @@
       z-index: 1;
       visibility: visible !important;
     }
-    .splash-overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 240px; height: 282px;
-      background: #000;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      z-index: 10;
-      cursor: pointer;
-    }
-    .splash-image {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 20px;
-      image-rendering: pixelated;
-    }
-    .splash-text {
-      font-size: 16px;
-      margin-top: 10px;
-      text-align: center;
-    }
-    .splash-instructions {
-      font-size: 12px;
-      margin-top: 15px;
-      text-align: center;
-      line-height: 1.4;
-      padding: 0 10px;
-      color: #ccc;
-    }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="240" height="282" style="visibility: visible;"></canvas>
   
-  <div id="splashScreen" class="splash-overlay">
-    <img id="splashImage" src="" alt="Gravity-Man" class="splash-image"/>
-    <div class="splash-text">Click to Start</div>
-    <div class="splash-instructions">
-      Sammle alle 8 Teile und erreiche<br>
-      den grünen Ausgang.<br>
-      Berühre die Gegner nicht!
-    </div>
-  </div>
-  
-  <audio id="bgMusic" preload="auto" loop style="display:none">
+  <audio id="bgMusic" loop preload="auto" style="display:none">
     <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
   </audio>
   
@@ -97,27 +55,29 @@
   }
   
   function startGame() {
-    document.getElementById('splashScreen').classList.add('hidden');
     initializeAudio();
     if (!window.game && typeof window.Game !== 'undefined') {
       window.game = new window.Game();
     } else if (typeof window.Game === 'undefined') {
-      setTimeout(startGame, 100); // Retry falls Game-Klasse nicht geladen
+      setTimeout(startGame, 100);
     }
   }
   
   window.addEventListener('DOMContentLoaded', () => {
-    const splashScreen = document.getElementById('splashScreen');
-    if (splashScreen) {
-      splashScreen.addEventListener('click', startGame);
-      splashScreen.addEventListener('touchstart', startGame, { passive: false });
-    }
+    setTimeout(startGame, 500);
+    
+    const startOnUserInput = () => {
+      startGame();
+    };
     
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         startGame();
       }
     }, { once: true });
+    
+    window.addEventListener('click', startOnUserInput, { passive: true, once: true });
+    window.addEventListener('touchstart', startOnUserInput, { passive: true, once: true });
   });
   </script>
 </body>
