@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no">
@@ -46,6 +46,7 @@
             justify-content: center;
             color: #fff;
             z-index: 100;
+            cursor: pointer;
         }
         
         .splash-image {
@@ -69,8 +70,8 @@
 <body>
     <canvas id="gameCanvas" width="240" height="282"></canvas>
     
-    <div id="splashScreen" class="splash-overlay">
-        <img id="splashImage" class="splash-image" src="grav1tyman-splash.png" alt="Gravity-Man">
+    <div class="splash-overlay" id="splashScreen">
+        <img src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image" id="splashImage">
         <div class="splash-text">Tap to Start</div>
     </div>
     
@@ -88,21 +89,43 @@
         function initializeAudio() {
             if (!audioInitialized) {
                 const music = document.getElementById('bgMusic');
-                music.volume = 0.3;
-                music.play().catch(e => console.log('Audio autoplay blocked'));
-                audioInitialized = true;
+                if (music) {
+                    music.volume = 0.3;
+                    music.play().catch(e => console.log('Audio autoplay blocked'));
+                    audioInitialized = true;
+                }
             }
         }
         
         function startGame() {
             const splashScreen = document.getElementById('splashScreen');
+            const canvas = document.getElementById('gameCanvas');
+            
+            // Hide splash screen
             splashScreen.classList.add('hidden');
             
+            // Initialize audio
             initializeAudio();
             
+            // Create and start the game
             if (!game) {
                 console.log('🎮 Starting Gravity-Man...');
-                game = new GravityManGame();
+                try {
+                    // Ensure canvas context is available
+                    if (!canvas || !canvas.getContext) {
+                        console.error('Canvas not available');
+                        return;
+                    }
+                    
+                    // Create new game instance using the correct class name
+                    window.game = new Game();
+                    game = window.game;
+                    console.log('✅ Game started successfully!');
+                } catch (error) {
+                    console.error('Failed to start game:', error);
+                    // Fallback: show splash again if game fails
+                    splashScreen.classList.remove('hidden');
+                }
             }
         }
         
@@ -110,9 +133,18 @@
             console.log('📱 Gravity-Man loading on Rabbit R1...');
             
             const splashScreen = document.getElementById('splashScreen');
-            splashScreen.addEventListener('click', startGame);
-            splashScreen.addEventListener('touchstart', startGame);
-            document.addEventListener('keydown', startGame, { once: true });
+            if (splashScreen) {
+                splashScreen.addEventListener('click', startGame);
+                splashScreen.addEventListener('touchstart', startGame, { passive: false });
+            }
+            
+            // Allow keyboard start as fallback
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' || e.code === 'Enter') {
+                    e.preventDefault();
+                    startGame();
+                }
+            }, { once: true });
             
             console.log('✅ Game ready - tap splash screen to start!');
         });
