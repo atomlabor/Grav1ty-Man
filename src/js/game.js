@@ -1,220 +1,219 @@
-/* Gravity-Man main game engine - 5-Level BW Edition (8 parts per level)
-   Changes:
-   - Music autostart removed from constructor; now only start via index.html user event
-   - drawPlaying renders spaceship background, platforms, hazards, Daleks, Keycards, player, and EXIT portal when all parts collected
-   - Five levels defined and switchable
-*/
+// Gravity-Man game with splash graphic grav1tyman.png and Rabbit R1 controls
+// NOTE: This file replaces previous content to implement requested features.
+class LevelManager {
+  constructor(canvasWidth, canvasHeight) {
+    this.canvasWidth = canvasWidth;
+    this.canvasHeight = canvasHeight;
+    this.current = this.createTestLevel();
+  }
+  createTestLevel() {
+    return {
+      walls: [
+        { x: 0, y: 0, width: this.canvasWidth, height: 12 },
+        { x: 0, y: this.canvasHeight - 12, width: this.canvasWidth, height: 12 },
+        { x: 0, y: 0, width: 12, height: this.canvasHeight },
+        { x: this.canvasWidth - 12, y: 0, width: 12, height: this.canvasHeight },
+        { x: 24, y: 64, width: 96, height: 10 },
+        { x: 140, y: 54, width: 64, height: 10 },
+        { x: 180, y: 120, width: 72, height: 10 },
+        { x: 48, y: 180, width: 120, height: 10 },
+      ],
+      hazards: [
+        { x: 60, y: 74, width: 30, height: 8 },
+        { x: 160, y: 64, width: 30, height: 8 },
+        { x: 120, y: 190, width: 60, height: 8 },
+      ],
+      goal: { x: 200, y: 140, width: 18, height: 18 },
+      start: { x: 20, y: 40 }
+    };
+  }
+  render(ctx) {
+    if (!this.current) return;
+    ctx.fillStyle = '#4A90E2';
+    this.current.walls.forEach(w => ctx.fillRect(w.x, w.y, w.width, w.height));
+    ctx.fillStyle = '#E74C3C';
+    this.current.hazards.forEach(h => ctx.fillRect(h.x, h.y, h.width, h.height));
+    ctx.fillStyle = '#2ECC71';
+    const g = this.current.goal;
+    ctx.fillRect(g.x, g.y, g.width, g.height);
+  }
+}
 class GravityManGame {
   constructor() {
-    this.canvas = document.getElementById('gameCanvas');
-    this.ctx = this.canvas?.getContext('2d');
-    if (!this.canvas || !this.ctx) { console.error('Canvas/Context missing'); return; }
-    this.ctx.imageSmoothingEnabled = false;
-
-    // Sprites and assets (paths relative to index.html in repo root)
-    this.images = {
-      splash: this.loadImage('grav1tyman-splash.png'),
-      end: this.loadImage('endscreen.png'),
-      bg: this.loadImage('spaceship-bg.png'),
-      player: null, // player drawn by player.js
-      enemy: this.loadImage('dalek.png'),
-      part: this.loadImage('keycard.png'),
-      exit: this.loadImage('exit.png')
-    };
-
-    // Music element is present in index.html. Start will be triggered from there only.
-    this.music = document.getElementById('bgMusic');
-    if (this.music) this.music.volume = 0.35;
-
-    // Simple BW palette
-    this.colors = { bg:'#000', fg:'#fff', platform:'#fff', hazard:'#fff', enemy:'#fff', part:'#fff', goalClosed:'#000', goalOpen:'#fff' };
-
-    // Game state
-    this.state = 'splash';
+    this.canvas = document.getElementById('gameCanvas') || this.createCanvas();
+    this.ctx = this.canvas.getContext('2d');
+    this.canvas.width = 240; this.canvas.height = 282;
+    Object.assign(this.canvas.style, { width: '240px', height: '282px', display: 'block', margin: '0 auto', objectFit: 'none' });
+    this.gameMode = 'splash';
     this.isPaused = false;
-
-    // Levels
-    this.levels = this.createLevels();
-    this.levelIndex = 0;
-    this.currentLevel = this.levels[this.levelIndex];
-
-    // Collection / goal
-    this.totalParts = this.currentLevel.parts.length;
-    this.collectedParts = 0;
-    this.goalOpen = false;
-
-    // Player & physics
-    this.player = new Player(this.currentLevel.start.x, this.currentLevel.start.y);
-    this.gravity = { direction:'down', strength:0.5 };
-
-    // Input and loop
-    this.setupInput();
-    this.lastTime = performance.now();
-    requestAnimationFrame(this.loop.bind(this));
-
-    // IMPORTANT: Music autostart disabled; only start via user event in index.html
-    // this.tryPlayMusic(); // commented out by requirement
-  }
-
-  // Load image helper
-  loadImage(src){
-    const img = new Image();
-    img.src = src;
-    img.onerror = (e)=>console.warn('Image failed',src,e);
-    return img;
-  }
-
-  // Retained helper for index.html to call on first user interaction if desired
-  tryPlayMusic(){
-    if(!this.music) return;
-    const tryPlay = ()=> this.music.play().catch(()=>{});
-    // Do not call here automatically; index.html should call this on user gesture
-    // Keeping the logic so index.html can wire it.
-    // Example from index.html: window.addEventListener('pointerdown', ()=>game.tryPlayMusic(), { once:true });
-    tryPlay();
-  }
-
-  setupInput(){
-    // Keyboard
-    window.addEventListener('keydown',(e)=>{
-      if(this.state==='splash' && (e.code==='Space'||e.key===' ')){
-        this.startGame();
-        return;
+    this.hazardFlashUntil = 0;
+    // Splash image
+    this.splash = { img: new Image(), loaded: false };
+    this.splash.img.src = './grav1tyman.png';
+    this.splash.img.onload = () => { this.splash.loaded = true; };
+    // Level and player
+    this.levels = new LevelManager(this.canvas.width, this.canvas.height);
+    if (typeof Player !== 'undefined') {
+      const s = this.levels.current.start;
+      this.player = new Player(s.x, s.y);
+    }
+    // Rabbit R1 SDK facade
+    this.creations = {
+      panelVisible: false,
+      setGravity: (dir) => { if (this.player?.setGravity) this.player.setGravity(dir); },
+      onPTT: (pressed) => { if (!pressed) return; if (this.gameMode === 'splash') this.start(); else this.togglePause(); },
+      onOrientation: (a,b,g) => {
+        if (!this.player) return;
+        const ax = Math.abs(g||0), ay = Math.abs(b||0);
+        if (ax > ay) this.creations.setGravity((g||0) > 8 ? 'right' : (g||0) < -8 ? 'left' : this.player.gravityDir||'down');
+        else this.creations.setGravity((b||0) > 8 ? 'down' : (b||0) < -8 ? 'up' : this.player.gravityDir||'down');
       }
-      if(this.state!=='playing') return;
-      switch(e.code){
-        case 'ArrowUp': this.setGravity('up'); break;
-        case 'ArrowDown': this.setGravity('down'); break;
-        case 'ArrowLeft': this.setGravity('left'); break;
-        case 'ArrowRight': this.setGravity('right'); break;
-        case 'KeyR': this.restartLevel(); break;
-        case 'Space': this.togglePause(); break;
+    };
+    this.setupEventListeners();
+    this.gameLoop();
+  }
+  createCanvas() {
+    const c = document.createElement('canvas');
+    c.id = 'gameCanvas'; c.width = 240; c.height = 282;
+    Object.assign(c.style, { border: '1px solid #222', display: 'block', margin: '0 auto' });
+    document.body.appendChild(c); return c;
+  }
+  setupEventListeners() {
+    document.addEventListener('keydown', (e) => {
+      switch (e.code) {
+        case 'Space': e.preventDefault(); if (this.gameMode==='splash') this.start(); else this.togglePause(); break;
+        case 'KeyB': this.restart(); break;
+        case 'KeyA': if (this.gameMode==='playing') this.player?.boost?.(); break;
+        case 'ArrowUp': this.creations.setGravity('up'); break;
+        case 'ArrowDown': this.creations.setGravity('down'); break;
+        case 'ArrowLeft': this.creations.setGravity('left'); break;
+        case 'ArrowRight': this.creations.setGravity('right'); break;
       }
-    });
-
-    // Touch swipe
-    let sx=0, sy=0;
-    window.addEventListener('touchstart',(e)=>{
-      if(this.state==='splash'){ this.startGame(); return; }
-      const t=e.touches[0]; sx=t.clientX; sy=t.clientY;
-    });
-    window.addEventListener('touchend',(e)=>{
-      if(this.state!=='playing') return;
-      const t=e.changedTouches[0];
-      const dx=t.clientX-sx, dy=t.clientY-sy;
-      if(Math.abs(dx)>Math.abs(dy)) this.setGravity(dx>0?'right':'left');
-      else this.setGravity(dy>0?'down':'up');
-    });
-
-    // Optional device orientation
-    if(window.DeviceOrientationEvent){
-      const handler=(ev)=>{
-        if(this.state!=='playing') return;
-        const g=ev.gamma||0, b=ev.beta||0;
-        if(Math.abs(g)>Math.abs(b)){
-          if(g>10) this.setGravity('right'); else if(g<-10) this.setGravity('left');
-        } else {
-          if(b>14) this.setGravity('down'); else if(b<-14) this.setGravity('up');
-        }
-      };
-      if(typeof DeviceOrientationEvent.requestPermission==='function'){
-        window.addEventListener('pointerdown', async ()=>{
-          try{ const p=await DeviceOrientationEvent.requestPermission(); if(p==='granted') window.addEventListener('deviceorientation',handler); }catch{}
-        }, {once:true});
-      } else {
-        window.addEventListener('deviceorientation',handler);
+    }, { passive: false });
+    const startOnPointer = () => { if (this.gameMode === 'splash') this.start(); };
+    this.canvas.addEventListener('click', startOnPointer, { passive: true });
+    this.canvas.addEventListener('pointerdown', startOnPointer, { passive: true });
+    this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startOnPointer(); }, { passive: false });
+    // Swipe to set gravity
+    let t0 = null;
+    this.canvas.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; t0 = { x:t.clientX, y:t.clientY }; }, { passive: true });
+    this.canvas.addEventListener('touchend', (e) => {
+      if (!t0) return; const t = e.changedTouches[0]; const dx=t.clientX-t0.x, dy=t.clientY-t0.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 12) {
+        if (Math.abs(dx) > Math.abs(dy)) this.creations.setGravity(dx>0?'right':'left');
+        else this.creations.setGravity(dy>0?'down':'up');
       }
+      t0 = null;
+    }, { passive: true });
+    // Gyro
+    if ('DeviceOrientationEvent' in window) {
+      window.addEventListener('deviceorientation', (ev) => this.creations.onOrientation(ev.alpha, ev.beta, ev.gamma));
+    }
+    // Rabbit R1 SDK if present
+    const sdk = window.creations || window.r1 || window.rabbit || null;
+    if (sdk?.on) {
+      try {
+        sdk.on('ptt', (pressed) => this.creations.onPTT(pressed));
+        sdk.on('panel', (visible) => { this.creations.panelVisible = !!visible; });
+        sdk.on('orientation', ({alpha,beta,gamma}) => this.creations.onOrientation(alpha,beta,gamma));
+      } catch(_){}
+    } else {
+      document.addEventListener('keydown', (e) => { if (e.code==='KeyP') this.creations.onPTT(true); });
     }
   }
-
-  setGravity(dir){ this.gravity.direction=dir; }
-  startGame(){ this.levelIndex=0; this.loadLevel(this.levelIndex); this.state='playing'; }
-  togglePause(){ this.isPaused=!this.isPaused; }
-
-  loadLevel(idx){
-    this.levelIndex=Math.max(0,Math.min(idx,this.levels.length-1));
-    this.currentLevel=this.levels[this.levelIndex];
-    for(const p of this.currentLevel.parts) p.collected=false;
-    this.totalParts=this.currentLevel.parts.length;
-    this.collectedParts=0;
-    this.goalOpen=false;
-    const s=this.currentLevel.start;
-    if(!this.player) this.player=new Player(s.x,s.y); else this.player.reset(s.x,s.y);
-    this.gravity.direction='down';
+  start() {
+    this.gameMode = 'playing'; this.isPaused = false;
+    if (this.player && this.levels.current) {
+      const s = this.levels.current.start; this.player.x=s.x; this.player.y=s.y; this.player.vx=0; this.player.vy=0;
+      this.player.setGravity?.('down');
+    }
   }
-  nextLevel(){ if(this.levelIndex<this.levels.length-1) this.loadLevel(this.levelIndex+1); else this.state='end'; }
-  restartLevel(){ const s=this.currentLevel.start; this.player?.reset?.(s.x,s.y); for(const p of this.currentLevel.parts) p.collected=false; this.collectedParts=0; this.goalOpen=false; this.gravity.direction='down'; }
-
-  // -------- Levels (BW) --------
-  createLevels(){
-    const W=240, H=282;
-    const enemy=(x,y,w=10,h=14,speed=0.07)=>({x,y,w,h,vx:0,vy:0,speed}); // slightly bigger for better sprite fit
-
-    // Five handcrafted levels, each with 8 keycard parts
-    const L1={ start:{x:12,y:12},
-      platforms:[ {x:0,y:H-12,width:W,height:12}, {x:36,y:220,width:60,height:6}, {x:120,y:160,width:80,height:6}, {x:24,y:100,width:60,height:6} ],
-      hazards:[ {x:100,y:H-18,width:20,height:6} ],
-      enemies:[ enemy(200,20) ],
-      parts:[ {x:10,y:H-24,width:10,height:10}, {x:42,y:208,width:10,height:10}, {x:170,y:148,width:10,height:10}, {x:28,y:88,width:10,height:10}, {x:220,y:20,width:10,height:10}, {x:120,y:20,width:10,height:10}, {x:70,y:H-24,width:10,height:10}, {x:210,y:120,width:10,height:10} ],
-      goal:{x:210,y:120,width:16,height:16}
-    };
-
-    const L2={ start:{x:12,y:H-24},
-      platforms:[ {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:60,y:220,width:120,height:6}, {x:60,y:160,width:120,height:6}, {x:60,y:100,width:120,height:6} ],
-      hazards:[ {x:120,y:214,width:12,height:6}, {x:120,y:154,width:12,height:6} ],
-      enemies:[ enemy(120,40) ],
-      parts:[ {x:66,y:210,width:10,height:10}, {x:174,y:150,width:10,height:10}, {x:66,y:90,width:10,height:10}, {x:10,y:10,width:10,height:10}, {x:220,y:10,width:10,height:10}, {x:10,y:H-24,width:10,height:10}, {x:220,y:H-24,width:10,height:10}, {x:120,y:60,width:10,height:10} ],
-      goal:{x:W-24,y:12,width:16,height:16}
-    };
-
-    const L3={ start:{x:20,y:20},
-      platforms:[ {x:0,y:H-12,width:W,height:12}, {x:0,y:0,width:W,height:6}, {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:40,y:210,width:60,height:6}, {x:140,y:120,width:60,height:6} ],
-      hazards:[ {x:100,y:H-18,width:20,height:6} ],
-      enemies:[ enemy(120,30), enemy(200,200) ],
-      parts:[ {x:46,y:198,width:10,height:10}, {x:146,y:108,width:10,height:10}, {x:206,y:20,width:10,height:10}, {x:20,y:20,width:10,height:10}, {x:220,y:H-24,width:10,height:10}, {x:120,y:60,width:10,height:10}, {x:70,y:150,width:10,height:10}, {x:200,y:120,width:10,height:10} ],
-      goal:{x:W-24,y:H-24,width:16,height:16}
-    };
-
-    const L4={ start:{x:12,y:24},
-      platforms:[ {x:0,y:0,width:W,height:6}, {x:0,y:H-12,width:W,height:12}, {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:30,y:60,width:180,height:6}, {x:30,y:120,width:180,height:6}, {x:30,y:180,width:180,height:6}, {x:90,y:240,width:60,height:6} ],
-      hazards:[ {x:120,y:114,width:12,height:6}, {x:120,y:174,width:12,height:6} ],
-      enemies:[ enemy(60,70), enemy(180,130) ],
-      parts:[ {x:36,y:48,width:10,height:10}, {x:204,y:168,width:10,height:10}, {x:96,y:228,width:10,height:10}, {x:36,y:168,width:10,height:10}, {x:204,y:48,width:10,height:10}, {x:120,y:228,width:10,height:10}, {x:90,y:84,width:10,height:10}, {x:150,y:84,width:10,height:10} ],
-      goal:{x:W-30,y:18,width:16,height:16}
-    };
-
-    const L5={ start:{x:12,y:H-24},
-      platforms:[ {x:0,y:0,width:W,height:6}, {x:0,y:H-12,width:W,height:12}, {x:0,y:0,width:6,height:H}, {x:W-6,y:0,width:6,height:H}, {x:40,y:220,width:160,height:6}, {x:40,y:160,width:160,height:6}, {x:40,y:100,width:160,height:6} ],
-      hazards:[ {x:110,y:214,width:20,height:6}, {x:110,y:154,width:20,height:6}, {x:110,y:94,width:20,height:6} ],
-      enemies:[ enemy(80,30), enemy(160,30), enemy(120,200) ],
-      parts:[ {x:46,y:210,width:10,height:10}, {x:194,y:150,width:10,height:10}, {x:46,y:90,width:10,height:10}, {x:20,y:20,width:10,height:10}, {x:220,y:20,width:10,height:10}, {x:20,y:H-24,width:10,height:10}, {x:220,y:H-24,width:10,height:10}, {x:120,y:120,width:10,height:10} ],
-      goal:{x:W-24,y:12,width:16,height:16}
-    };
-    return [L1,L2,L3,L4,L5];
+  restart() { this.gameMode='splash'; this.isPaused=false; this.hazardFlashUntil=0; }
+  togglePause() { if (this.gameMode==='playing') this.isPaused=!this.isPaused; }
+  gameLoop() { this.update(); this.render(); requestAnimationFrame(()=>this.gameLoop()); }
+  update() {
+    if (this.gameMode==='playing' && !this.isPaused && this.player) {
+      this.player.update(this.levels.current);
+      this.checkCollisions(); this.checkLevelComplete();
+    }
   }
-
-  // --- Physics and game loop ---
-  update(dt){ if(this.state!=='playing' || this.isPaused) return; this.player?.update?.(dt,this.gravity,this.currentLevel); this.updateEnemies(dt); this.checkCollisionsAndCollect(); this.checkLevelProgress(); }
-
-  updateEnemies(dt){ const lvl=this.currentLevel; for(const e of (lvl.enemies||[])){ const g=this.gravity.direction, s=e.speed; let vx=0, vy=0; if(g==='down') vy=s; else if(g==='up') vy=-s; else if(g==='right') vx=s; else vx=-s; e.x+=vx*dt; e.y+=vy*dt; // bounds
-      if(e.x<0) e.x=0; if(e.x+e.w>this.canvas.width) e.x=this.canvas.width-e.w; if(e.y<0) e.y=0; if(e.y+e.h>this.canvas.height) e.y=this.canvas.height-e.h; // collide with platforms roughly by backing out movement
-      for(const p of lvl.platforms){ const rect={x:e.x,y:e.y,width:e.w,height:e.h}; const pr={x:p.x,y:p.y,width:p.width,height:p.height}; if(this.aabb(rect,pr)){ if(g==='down') e.y=p.y-e.h; else if(g==='up') e.y=p.y+p.height; else if(g==='right') e.x=p.x-e.w; else e.x=p.x+p.width; } }
-    } }
-
-  aabb(a,b){ return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
-
-  checkCollisionsAndCollect(){ const lvl=this.currentLevel; const pl={ x:this.player.x, y:this.player.y, width:this.player.w||10, height:this.player.h||14 };
-    // hazards reset
-    for(const h of lvl.hazards){ if(this.aabb(pl,h)){ this.restartLevel(); return; } }
-    // enemies reset
-    for(const e of (lvl.enemies||[])){ const er={x:e.x,y:e.y,width:e.w,height:e.h}; if(this.aabb(pl,er)){ this.restartLevel(); return; } }
-    // collect parts
-    for(const part of lvl.parts){ if(!part.collected && this.aabb(pl,part)){ part.collected=true; this.collectedParts++; } }
-    // open goal if all collected
-    if(this.collectedParts>=this.totalParts) this.goalOpen=true;
+  render() {
+    this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+    if (this.gameMode==='splash') this.renderSplashScreen();
+    else {
+      this.renderBackground();
+      this.levels?.render(this.ctx);
+      this.player?.render(this.ctx);
+      if (this.isPaused) this.renderPauseScreen();
+      this.renderOverlayAndPanel();
+    }
   }
-
-  checkLevelProgress(){ if(!this.goalOpen) return; const g=this.currentLevel.goal; const pl={ x:this.player.x, y:this.player.y, width:this.player.w||10, height:this.player.h||14 }; if(this.aabb(pl,g)){ this.nextLevel(); } }
-
-  // Draw splash screen
-  drawSplash(){ this.ctx.fillStyle=this.colors.bg; this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height); if(this.images.splash?.complete) this.ctx.drawImage(this.images.splash,0,0,240,282); this.ctx.fillStyle=this.colors.fg; this.ctx.font='10px monospace'; this.ctx.textAlign='center'; this.ctx.fillText('Press SPACE to start', this.canvas
+  renderSplashScreen() {
+    const ctx=this.ctx, w=this.canvas.width, h=this.canvas.height;
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+    if (this.splash.loaded) {
+      const img=this.splash.img, iw=img.width, ih=img.height;
+      const scale=Math.min(w/iw,(h-40)/ih);
+      const dw=Math.floor(iw*scale), dh=Math.floor(ih*scale);
+      const dx=Math.floor((w-dw)/2), dy=Math.floor((h-dh)/2)-4;
+      ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+      ctx.drawImage(img,dx,dy,dw,dh);
+    } else {
+      ctx.fillStyle='#222'; ctx.fillRect(20,20,w-40,h-60);
+      ctx.fillStyle='#888'; ctx.font='12px monospace'; ctx.textAlign='center';
+      ctx.fillText('Loading splash...', w/2, h/2); ctx.textAlign='left';
+    }
+    ctx.fillStyle='#FFF'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('GRAVITY MAN', w/2, h-28);
+    ctx.font='10px monospace';
+    ctx.fillText('Tap/Space/PTT to Start • Tilt/Arrows/Swipe control', w/2, h-14);
+    ctx.textAlign='left';
+  }
+  renderBackground() {
+    const ctx=this.ctx; ctx.fillStyle='#111';
+    for (let y=0;y<this.canvas.height;y+=8) {
+      ctx.fillRect(0,y,this.canvas.width,1);
+    }
+    for (let x=0;x<this.canvas.width;x+=8) {
+      ctx.fillRect(x,0,1,this.canvas.height);
+    }
+  }
+  renderPauseScreen() {
+    const c=this.canvas, ctx=this.ctx; ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#FFF'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('PAUSED', c.width/2, c.height/2);
+    ctx.fillText('Press SPACE/PTT to continue', c.width/2, c.height/2+16);
+    ctx.textAlign='left';
+  }
+  checkCollisions() {
+    const lvl=this.levels?.current; if (!lvl||!this.player) return;
+    if (lvl.hazards.some(h=>this.player.checkCollision?.(h))) this.hazardFlashUntil=performance.now()+60;
+  }
+  checkLevelComplete() {
+    const g=this.levels?.current?.goal; if (g && this.player?.checkCollision?.(g)) { this.player.reachGoal?.(); setTimeout(()=>this.restart(),600); }
+  }
+  renderOverlayAndPanel() {
+    const ctx=this.ctx, now=performance.now();
+    if (this.hazardFlashUntil && now<this.hazardFlashUntil) { ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }
+    ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,this.canvas.width,12);
+    ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle';
+    ctx.fillText(`Mode:${this.gameMode.toUpperCase()}`, 4, 6);
+    ctx.textAlign='right'; ctx.fillText('A Boost  B Restart  PTT Pause', this.canvas.width-4, 6); ctx.textAlign='left';
+    const showPanel=this.isPaused || this.creations.panelVisible;
+    if (showPanel) {
+      const h=48; ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(0,this.canvas.height-h,this.canvas.width,h);
+      ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.strokeRect(0.5,this.canvas.height-h+0.5,this.canvas.width-1,h-1);
+      ctx.fillStyle='#FFF'; ctx.font='9px monospace';
+      ctx.fillText('Panel:', 6, this.canvas.height-h+12);
+      ctx.fillText('- Tilt: change gravity', 12, this.canvas.height-h+22);
+      ctx.fillText('- Arrows/Swipe: gravity', 12, this.canvas.height-h+32);
+      ctx.fillText('- A: Boost  B: Restart', 12, this.canvas.height-h+42);
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const c=document.getElementById('gameCanvas'); if (c) { c.width=240; c.height=282; c.style.width='240px'; c.style.height='282px'; }
+  if (typeof window.Player==='undefined' && typeof Player!=='undefined') window.Player=Player;
+  window.gravityManGame = new GravityManGame();
+});
+if (typeof module!=='undefined' && module.exports) module.exports = GravityManGame;
