@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no"/>
   <title>Grav1ty-Man (Rabbit r1 Edition)</title>
   <style>
     html, body {
@@ -56,8 +56,8 @@
 <body>
   <canvas id="gameCanvas" width="240" height="282" style="visibility: visible;"></canvas>
   
-  <div class="splash-overlay" id="splashScreen">
-    <img src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image" id="splashImage">
+  <div id="splashScreen" class="splash-overlay">
+    <img id="splashImage" src="" alt="Gravity-Man" class="splash-image"/>
     <div class="splash-text">Tap / Space / Enter zum Start</div>
   </div>
   
@@ -86,24 +86,10 @@
   function startGame() {
     document.getElementById('splashScreen').classList.add('hidden');
     initializeAudio();
-    
-    // Canvas anzeigen/fokussieren
-    const canvas = document.getElementById('gameCanvas');
-    if (canvas) {
-      canvas.style.visibility = 'visible';
-      canvas.style.display = 'block';
-    }
-    
-    // Game erzeugen
-    if (!game) {
-      // Warten bis Game-Klasse geladen ist
-      if (typeof Game === 'undefined') {
-        console.error('Game-Klasse noch nicht geladen, versuche erneut...');
-        setTimeout(startGame, 100);
-        return;
-      }
-      window.game = new Game();
-      game = window.game;
+    if (!window.game && typeof window.Game !== 'undefined') {
+      window.game = new window.Game();
+    } else if (typeof window.Game === 'undefined') {
+      setTimeout(startGame, 100); // Retry falls Game-Klasse nicht geladen
     }
   }
   
