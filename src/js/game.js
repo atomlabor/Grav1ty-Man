@@ -124,4 +124,25 @@ class Game{
   drawBG(){ const s=this.sprites.bg; const ctx=this.x; if(s.loaded){ ctx.filter='grayscale(100%)'; ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(s.img,0,0,this.w,this.h); ctx.filter='none'; } else { ctx.fillStyle='#000'; ctx.fillRect(0,0,this.w,this.h); }}
   drawSplash(){ const s=this.sprites.splash, ctx=this.x; ctx.fillStyle='#000'; ctx.fillRect(0,0,this.w,this.h); if(s.loaded){ const iw=s.img.width, ih=s.img.height; const sc=Math.min(this.w/iw,(this.h-24)/ih); const dw=(iw*sc)|0, dh=(ih*sc)|0; const dx=((this.w-dw)/2)|0, dy=((this.h-dh)/2)|0; ctx.filter='grayscale(100%)'; ctx.drawImage(s.img,dx,dy,dw,dh); ctx.filter='none'; } ctx.fillStyle='#FFF'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.fillText('Tap/Space/PTT to Start', this.w/2, this.h-10); ctx.textAlign='left'; }
   drawHUD(){ const ctx=this.x; ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,this.w,12); ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle'; ctx.fillText(`L${this.levels.i+1}/5  Parts:${this.collected}/8`,4,6); ctx.textAlign='right'; ctx.fillText('Arrows=Gravity  A=Boost', this.w-4,6); ctx.textAlign='left'; if(this.flashUntil && performance.now()<this.flashUntil){ ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(0,0,this.w,this.h);} }
-  render(){ const ctx=this.x; ctx.clearRect(0,0,this.w,this.h); if(this.mode==='splash'){ this.drawSplash
+ render() {
+  const ctx = this.x;
+  ctx.clearRect(0,0,this.w,this.h);
+  if (this.mode === 'splash') {
+    this.drawSplash();
+  } else if (this.mode === 'playing') {
+    this.drawBG();
+    this.levels.render(ctx, this.sprites);
+    for(const it of this.levels.cur().items) 
+      if(!it.collected) ctx.drawImage(this.sprites.item.img, it.x, it.y, it.w, it.h);
+    for(const e of this.levels.cur().enemies)
+      ctx.drawImage(this.sprites.enemy.img, e.x, e.y, e.w, e.h);
+    this.sprites.player.loaded && this.p.render(ctx);
+    this.drawHUD();
+  } else if (this.mode === 'end') {
+    ctx.drawImage(this.sprites.end.img, 0, 0, this.w, this.h);
+    ctx.fillStyle = '#FFF';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Raumschiff repariert! Spiel gewonnen.', this.w/2, this.h/2 + 30);
+  }
+}
