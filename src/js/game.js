@@ -199,7 +199,5 @@ class Game {
   }
   gameLoop() { this.update(); this.render(); requestAnimationFrame(() => this.gameLoop()); }
 }
-
 // Export / global expose
 if (typeof window !== 'undefined') { window.Game = Game; }
-export { Game };
