@@ -16,14 +16,25 @@ const A = {
 };
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rnd=(a,b)=>a+Math.random()*(b-a);
-class Img { constructor(src){ this.img=new Image(); this.loaded=false; this.img.onload=()=>this.loaded=true; this.img.src=src; } }
+class Img { 
+  constructor(src){ 
+    this.img=new Image(); 
+    this.loaded=false; 
+    this.error=false;
+    this.img.onload=()=>{ this.loaded=true; };
+    this.img.onerror=(e)=>{ 
+      this.error=true; 
+      console.error('Image failed to load:', src, e);
+    };
+    this.img.src=src; 
+  } 
+}
 class Music { constructor(src){ this.a=document.getElementById('bgMusic')||document.createElement('audio'); if(!this.a.src) this.a.src=src; this.a.loop=true; this.a.volume=0.45; this.ready=false; this.a.addEventListener('canplay',()=>this.ready=true,{once:true}); }
   play(){ try{ this.a.play(); }catch(_){}}
   stop(){ try{ this.a.pause(); this.a.currentTime=0; }catch(_){}}
 }
 // Axis-aligned rect collision helper
-const hit=(a,b)=>!(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y);
-
+const hit=(a,b)=>!(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
 class LevelManager{
   constructor(w,h){ this.w=w; this.h=h; this.i=0; this.levels=this.make(); }
   cur(){ return this.levels[this.i]; }
@@ -62,7 +73,6 @@ class LevelManager{
     ctx.fillStyle='#E0E0E0'; for(const w of l.walls) ctx.fillRect(w.x,w.y,w.width,w.height);
   }
 }
-
 class Player{
   constructor(x,y,s){ this.x=x; this.y=y; this.w=14; this.h=18; this.vx=0; this.vy=0; this.g='down'; this.s=s; }
   setGravity(d){ this.g=d; }
@@ -71,8 +81,8 @@ class Player{
     this.x+=this.vx; this.y+=this.vy; const r={x:this.x,y:this.y,w:this.w,h:this.h};
     // collide with walls
     for(const w of l.walls){ if(hit(r,{x:w.x,y:w.y,w:w.width,h:w.height})){ const dx1=(w.x+w.width)-r.x, dx2=(r.x+r.w)-w.x, dy1=(w.y+w.height)-r.y, dy2=(r.y+r.h)-w.y; const minx=Math.min(dx1,dx2), miny=Math.min(dy1,dy2);
-      if(minx<miny){ if(dx1<dx2){ this.x=w.x+w.width; this.vx=Math.max(this.vx,0);} else { this.x=w.x-this.w; this.vx=Math.min(this.vx,0);} }
-      else { if(dy1<dy2){ this.y=w.y+w.height; this.vy=Math.max(this.vy,0);} else { this.y=w.y-this.h; this.vy=Math.min(this.vy,0);} }
+      if(minx<miny){ if(dx1<dx2){ this.vx=Math.min(this.vx,0); this.x=w.x+w.width; } else { this.vx=Math.max(this.vx,0); this.x=w.x-this.w; } }
+      else { if(dy1<dy2){ this.vy=Math.min(this.vy,0); this.y=w.y+w.height; } else { this.vy=Math.max(this.vy,0); this.y=w.y-this.h; } }
       r.x=this.x; r.y=this.y; }
     }
   }
@@ -80,12 +90,11 @@ class Player{
   coll(b){ const r=this.rect(); return hit(r,b); }
   render(ctx){ if(this.s.player.loaded){ ctx.filter='grayscale(100%) contrast(120%)'; ctx.drawImage(this.s.player.img,this.x|0,this.y|0,this.w,this.h); ctx.filter='none'; } else { ctx.fillStyle='#FFF'; ctx.fillRect(this.x|0,this.y|0,this.w,this.h);} }
 }
-
 class Game{
   constructor(){
     this.c=document.getElementById('gameCanvas')||this.mkCanvas();
     this.x=this.c.getContext('2d'); this.w=240; this.h=282;
-    this.c.width=this.w; this.c.height=this.h; Object.assign(this.c.style,{width:'100%',height:'auto',aspectRatio:`${this.w}/${this.h}`,display:'block',margin:'0 auto',background:'#000'});
+    this.c.width=this.w; this.c.height=this.h; Object.assign(this.c.style,{width:'100%',height:'auto',aspectRatio:`${this.w}/${this.h}`,display:'block',margin:'0 auto',background:'#000', visibility:'visible'});
     this.sprites={ splash:new Img(A.splash), bg:new Img(A.bg), player:new Img(A.player), enemy:new Img(A.enemy), item:new Img(A.item), exit:new Img(A.exit), end:new Img(A.end) };
     this.music=new Music(A.music);
     this.mode='splash'; this.paused=false; this.flashUntil=0; this.levels=new LevelManager(this.w,this.h);
@@ -106,7 +115,7 @@ class Game{
     window.addEventListener('resize',()=>this.resize());
   }
   resize(){ const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); this.c.width=this.w*dpr; this.c.height=this.h*dpr; this.x.setTransform(dpr,0,0,dpr,0,0); }
-  start(){ this.mode='playing'; this.paused=false; this.music.play(); const l=this.levels.cur(); const s=l.start; this.p.x=s.x; this.p.y=s.y; this.p.vx=0; this.p.vy=0; this.p.setGravity('down'); this.collected=0; l.items.forEach(i=>i.collected=false); l.exit.open=false; }
+  start(){ this.mode='playing'; this.paused=false; this.c.style.visibility='visible'; this.c.scrollIntoView({behavior:'smooth', block:'center'}); this.music.play(); const l=this.levels.cur(); const s=l.start; this.p.x=s.x; this.p.y=s.y; this.p.vx=0; this.p.vy=0; this.p.setGravity('down'); this.collected=0; l.items.forEach(i=>i.collected=false); l.exit.open=false; }
   restartLevel(){ const l=this.levels.cur(); const s=l.start; this.p.x=s.x; this.p.y=s.y; this.p.vx=0; this.p.vy=0; this.p.setGravity('down'); this.flashUntil=performance.now()+180; l.items.forEach(i=>i.collected=false); l.exit.open=false; this.collected=0; }
   loop(){ this.update(); this.render(); requestAnimationFrame(()=>this.loop()); }
   update(){ if(this.mode!=='playing'||this.paused) return; const l=this.levels.cur(); this.p.update(l);
@@ -121,28 +130,6 @@ class Game{
       else { this.mode='end'; this.music.stop(); }
     }
   }
-  drawBG(){ const s=this.sprites.bg; const ctx=this.x; if(s.loaded){ ctx.filter='grayscale(100%)'; ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(s.img,0,0,this.w,this.h); ctx.filter='none'; } else { ctx.fillStyle='#000'; ctx.fillRect(0,0,this.w,this.h); }}
+  drawBG(){ const s=this.sprites.bg; const ctx=this.x; if(s.loaded && !s.error){ ctx.filter='grayscale(100%)'; ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(s.img,0,0,this.w,this.h); ctx.filter='none'; } else { ctx.fillStyle='#111'; ctx.fillRect(0,0,this.w,this.h); ctx.fillStyle='#FFF'; ctx.font='12px monospace'; ctx.textAlign='center'; ctx.fillText('BG nicht geladen!', this.w/2, this.h/2); ctx.textAlign='left'; }}
   drawSplash(){ const s=this.sprites.splash, ctx=this.x; ctx.fillStyle='#000'; ctx.fillRect(0,0,this.w,this.h); if(s.loaded){ const iw=s.img.width, ih=s.img.height; const sc=Math.min(this.w/iw,(this.h-24)/ih); const dw=(iw*sc)|0, dh=(ih*sc)|0; const dx=((this.w-dw)/2)|0, dy=((this.h-dh)/2)|0; ctx.filter='grayscale(100%)'; ctx.drawImage(s.img,dx,dy,dw,dh); ctx.filter='none'; } ctx.fillStyle='#FFF'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.fillText('Tap/Space/PTT to Start', this.w/2, this.h-10); ctx.textAlign='left'; }
-  drawHUD(){ const ctx=this.x; ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,this.w,12); ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle'; ctx.fillText(`L${this.levels.i+1}/5  Parts:${this.collected}/8`,4,6); ctx.textAlign='right'; ctx.fillText('Arrows=Gravity  A=Boost', this.w-4,6); ctx.textAlign='left'; if(this.flashUntil && performance.now()<this.flashUntil){ ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(0,0,this.w,this.h);} }
- render() {
-  const ctx = this.x;
-  ctx.clearRect(0,0,this.w,this.h);
-  if (this.mode === 'splash') {
-    this.drawSplash();
-  } else if (this.mode === 'playing') {
-    this.drawBG();
-    this.levels.render(ctx, this.sprites);
-    for(const it of this.levels.cur().items) 
-      if(!it.collected) ctx.drawImage(this.sprites.item.img, it.x, it.y, it.w, it.h);
-    for(const e of this.levels.cur().enemies)
-      ctx.drawImage(this.sprites.enemy.img, e.x, e.y, e.w, e.h);
-    this.sprites.player.loaded && this.p.render(ctx);
-    this.drawHUD();
-  } else if (this.mode === 'end') {
-    ctx.drawImage(this.sprites.end.img, 0, 0, this.w, this.h);
-    ctx.fillStyle = '#FFF';
-    ctx.font = '14px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('Raumschiff repariert! Spiel gewonnen.', this.w/2, this.h/2 + 30);
-  }
-}
+  drawHUD(){ const ctx=this.x; ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,this.w,12); ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle'; ctx.fillText(`L${this.levels.i+1}/5  Parts:${this.collected}/8`,4,6); ctx.textAlign
