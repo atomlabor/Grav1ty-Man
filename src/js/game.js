@@ -37,7 +37,7 @@ class LevelManager{
       // items 8
       for(let k=0;k<8;k++){ l.items.push({x:clamp((rnd(28,this.w-42)|0),28,this.w-42), y:clamp((rnd(40,this.h-56)|0),40,this.h-56), w:14,h:14,collected:false}); }
       // enemies 2+i
-      const ec=2+i; for(let e=0;e<ec;e++){ const ex=clamp((rnd(40,this.w-60)|0),40,this.w-60); const ey=clamp((rnd(60,this.h-80)|0),60,this.h-80); const hor=e%2===0; l.enemies.push({x:ex,y:ey,w:14,h:18, hor, v:0.6+0.06*i, dir:1, range:26+8*i, home:{x:ex,y:ey}}); }
+      const ec=2+i; for(let e=0;e<ec;e++){ const ex=clamp((rnd(40,this.w-60)|0),40,this.w-60); const ey=clamp((rnd(60,this.h-80)|0),60,this.h-80); l.enemies.push({x:ex,y:ey,w:12,h:12,hor:e%2===0,home:{x:ex,y:ey},range:26,v:0.6,dir:1}); }
       L.push(l);
     } return L;
   }
@@ -79,7 +79,8 @@ class Game{
     this.c.width=this.w; this.c.height=this.h; Object.assign(this.c.style,{width:'100%',height:'auto',aspectRatio:`${this.w}/${this.h}`,display:'block',margin:'0 auto',background:'#000'});
     this.sprites={ splash:new Img(A.splash), bg:new Img(A.bg), player:new Img(A.player), enemy:new Img(A.enemy), item:new Img(A.item), exit:new Img(A.exit), end:new Img(A.end) };
     this.music=new Music(A.music);
-    this.mode='splash'; this.paused=false; this.flashUntil=0; this.levels=new LevelManager(this.w,this.h);
+    // Start directly in playing mode; HTML splash overlay handles intro
+    this.mode='playing'; this.paused=false; this.flashUntil=0; this.levels=new LevelManager(this.w,this.h);
     const st=this.levels.cur().start; this.p=new Player(st.x,st.y,this.sprites); this.collected=0; this.levelClears=0;
     this.sdk={ panelVisible:false, setGravity:(d)=>this.p.setGravity(d), onPTT:(pr)=>{ if(!pr) return; if(this.mode==='splash') this.start(); else this.paused=!this.paused; }, onOrientation:(a,b,g)=>{ const ax=Math.abs(g||0), ay=Math.abs(b||0); if(ax>ay) this.sdk.setGravity((g||0)>8?'right':(g||0)<-8?'left':this.p.g||'down'); else this.sdk.setGravity((b||0)>8?'down':(b||0)<-8?'up':this.p.g||'down'); }};
     this.bind(); this.resize(); this.loop();
@@ -121,4 +122,4 @@ class Game{
     this.levels.render(ctx,this.sprites);
     // items
     const l=this.levels.cur();
-    for(const it of l.items){ if(it.collected) continue; if(this.sprites.item.loaded){ ctx.filter='grayscale(100%)
+    for(const it of l.items){ if(it.collected) continue; if(this.sprites.item.loaded){ ctx.filter='grayscale(100%)'; ctx.draw
