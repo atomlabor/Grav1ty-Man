@@ -35,56 +35,63 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
+      color: #FA6400;
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
       z-index: 10;
-      user-select: none;
+      cursor: pointer;
     }
-    #splashScreen.hidden {
-      display: none;
+    .hidden {
+      display: none !important;
     }
-    .splash-title {
+    #splashScreen h1 {
       color: #FA6400;
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 10px;
-      text-align: center;
+      font-size: 24px;
+      margin: 10px 0;
+      text-shadow: 2px 2px 0px #333;
     }
-    .splash-subtitle {
-      color: #FFF;
-      font-size: 10px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .splash-image {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 20px;
-      filter: grayscale(100%) contrast(120%);
-    }
-    .splash-instruction {
+    #splashScreen p {
       color: #FA6400;
-      font-size: 12px;
-      text-align: center;
-      animation: blink 1.5s infinite;
+      margin: 5px 0;
+      line-height: 1.4;
     }
-    @keyframes blink {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0.3; }
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
     }
   </style>
 </head>
 <body>
-  <!-- Splash Screen -->
-  <div id="splashScreen">
-    <div class="splash-title">GRAV1TY-MAN</div>
-    <div class="splash-subtitle">Rabbit r1 Edition</div>
-    <div class="splash-image">🚀</div>
-    <div class="splash-instruction">CLICK TO START</div>
-  </div>
-
-  <!-- Game Canvas -->
   <canvas id="gameCanvas"></canvas>
-
+  
+  <div id="splashScreen">
+    <h1>🕳️ GRAV1TY-MAN 🕳️</h1>
+    <p>Rabbit r1 Edition</p>
+    <p>──────────────────</p>
+    <p>🎮 Steuerung:</p>
+    <p>👆 Wischen = Schwerkraft ändern</p>
+    <p>🎯 Ziel: Sammle Items & finde Ausgang</p>
+    <p>──────────────────</p>
+    <p class="pulse">🖱️ KLICKEN ZUM STARTEN 🖱️</p>
+  </div>
+  
+  <!-- DOPPELT, NICHT LÖSCHEN -->
+  <!-- <div id="splashScreen2">
+    <h1>🕳️ GRAV1TY-MAN 🕳️</h1>
+    <p>Rabbit r1 Edition</p>
+    <p>──────────────────</p>
+    <p>🎮 Steuerung:</p>
+    <p>👆 Wischen = Schwerkraft ändern</p>
+    <p>🎯 Ziel: Sammle Items & finde Ausgang</p>
+    <p>──────────────────</p>
+    <p class="pulse">🖱️ KLICKEN ZUM STARTEN 🖱️</p>
+  </div> -->
+  
   <script src="src/js/assets.js"></script>
   <script src="src/js/game.js"></script>
   
@@ -92,16 +99,8 @@
   let game = null;
   
   function initializeAudio() {
-    // Audio context initialization for user interaction
-    if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-      const AudioContextClass = AudioContext || webkitAudioContext;
-      if (!window.audioContext) {
-        window.audioContext = new AudioContextClass();
-      }
-      if (window.audioContext.state === 'suspended') {
-        window.audioContext.resume();
-      }
-    }
+    // Audio wird vom Game selbst verwaltet
+    console.log('Audio wird initialisiert...');
   }
   
   function startGame() {
