@@ -1,153 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no">
-    <title>Grav1ty-Man (Rabbit r1 Edition)</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            width: 240px;
-            height: 282px;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #000;
-            font-family: monospace;
-        }
-        
-        #gameCanvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 240px;
-            height: 282px;
-            background: #000;
-            image-rendering: pixelated;
-            touch-action: manipulation;
-        }
-        
-        .splash-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 240px;
-            height: 282px;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            z-index: 100;
-            cursor: pointer;
-        }
-        
-        .splash-image {
-            max-width: 180px;
-            max-height: 180px;
-            image-rendering: pixelated;
-        }
-        
-        .splash-text {
-            font-size: 12px;
-            color: #ccc;
-            margin-top: 10px;
-            text-align: center;
-        }
-        
-        .hidden {
-            display: none;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=240, height=282, initial-scale=1.0, user-scalable=no">
+  <title>Grav1ty-Man (Rabbit r1 Edition)</title>
+  <style>
+    html, body {
+      width: 240px;
+      height: 282px;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: monospace;
+    }
+    #gameCanvas {
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+      width: 240px;
+      height: 282px;
+      background: #000;
+      image-rendering: pixelated;
+      touch-action: manipulation;
+      z-index: 1;
+    }
+    .splash-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 240px; height: 282px;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      z-index: 100;
+      cursor: pointer;
+    }
+    .splash-image {
+      max-width: 190px;
+      max-height: 190px;
+      image-rendering: pixelated;
+    }
+    .splash-text {
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="240" height="282"></canvas>
-    
-    <div class="splash-overlay" id="splashScreen">
-        <img src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image" id="splashImage">
-        <div class="splash-text">Tap to Start</div>
-    </div>
-    
-    <audio id="bgMusic" loop preload="auto">
-        <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
-    </audio>
-    
-    <script src="src/js/player.js"></script>
-    <script src="src/js/game.js"></script>
-    
-    <script>
-        let game;
-        let audioInitialized = false;
-        
-        function initializeAudio() {
-            if (!audioInitialized) {
-                const music = document.getElementById('bgMusic');
-                if (music) {
-                    music.volume = 0.3;
-                    music.play().catch(e => console.log('Audio autoplay blocked'));
-                    audioInitialized = true;
-                }
-            }
-        }
-        
-        function startGame() {
-            const splashScreen = document.getElementById('splashScreen');
-            const canvas = document.getElementById('gameCanvas');
-            
-            // Hide splash screen
-            splashScreen.classList.add('hidden');
-            
-            // Initialize audio
-            initializeAudio();
-            
-            // Create and start the game
-            if (!game) {
-                console.log('🎮 Starting Grav1ty-Man...');
-                try {
-                    // Ensure canvas context is available
-                    if (!canvas || !canvas.getContext) {
-                        console.error('Canvas not available');
-                        return;
-                    }
-                    
-                    // Create new game instance using the correct class name
-                    window.game = new Game();
-                    game = window.game;
-                    console.log('✅ Game started successfully!');
-                } catch (error) {
-                    console.error('Failed to start game:', error);
-                    // Fallback: show splash again if game fails
-                    splashScreen.classList.remove('hidden');
-                }
-            }
-        }
-        
-        window.addEventListener('DOMContentLoaded', () => {
-            console.log('📱 Gravity-Man loading on Rabbit R1...');
-            
-            const splashScreen = document.getElementById('splashScreen');
-            if (splashScreen) {
-                splashScreen.addEventListener('click', startGame);
-                splashScreen.addEventListener('touchstart', startGame, { passive: false });
-            }
-            
-            // Allow keyboard start as fallback
-            document.addEventListener('keydown', (e) => {
-                if (e.code === 'Space' || e.code === 'Enter') {
-                    e.preventDefault();
-                    startGame();
-                }
-            }, { once: true });
-            
-            console.log('✅ Game ready - tap splash screen to start!');
-        });
-    </script>
+  <canvas id="gameCanvas" width="240" height="282"></canvas>
+  <div class="splash-overlay" id="splashScreen">
+    <img src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image" id="splashImage">
+    <div class="splash-text">Tap / Space / Enter zum Start</div>
+  </div>
+  <audio id="bgMusic" loop preload="auto" style="display:none">
+    <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
+  </audio>
+  <script src="src/js/player.js"></script>
+  <script src="src/js/game.js"></script>
+  <script>
+  let game;
+  let audioInitialized = false;
+
+  function initializeAudio() {
+    if (!audioInitialized) {
+      const music = document.getElementById('bgMusic');
+      if (music) {
+        music.volume = 0.3;
+        music.play().catch(e => console.log('Audio autoplay blocked'));
+        audioInitialized = true;
+      }
+    }
+  }
+
+  function startGame() {
+    document.getElementById('splashScreen').classList.add('hidden');
+    initializeAudio();
+    // Canvas anzeigen/fokussieren
+    const canvas = document.getElementById('gameCanvas');
+    if (canvas) canvas.style.visibility = 'visible';
+    // Game erzeugen
+    if (!game) {
+      if (typeof Game === 'undefined') {
+        alert('Game-Klasse nicht definiert! Prüfe src/js/game.js.');
+        return;
+      }
+      window.game = new Game();
+      game = window.game;
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const splashScreen = document.getElementById('splashScreen');
+    if (splashScreen) {
+      splashScreen.addEventListener('click', startGame);
+      splashScreen.addEventListener('touchstart', startGame, { passive: false });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        startGame();
+      }
+    }, { once: true });
+  });
+  </script>
 </body>
 </html>
