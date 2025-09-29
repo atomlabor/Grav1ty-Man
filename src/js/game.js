@@ -51,8 +51,14 @@ class Game {
     this.collectedItems = 0;
     this.requiredItems = 1; // open exit after collecting 1 keycard
 
+    // Track if deviceorientation has ever fired
+    this.orientationReceived = false;
+
     // Gyro controls for Rabbit R1 and browsers
     this.setupGyroControls();
+
+    // Fallback start listeners (touch/click/key) while on splash
+    this.setupStartFallback();
 
     // Start loop
     this.gameLoop();
@@ -132,13 +138,11 @@ class Game {
     }
     return walls;
   }
-
   // Gyroscope-only controls
   setupGyroControls() {
     const tryStart = () => {
       if (this.gameState === 'splash' && this.assetsLoaded) this.startGame();
     };
-
     // iOS 13+ permission gate (no-op on other platforms)
     const requestPermissionIfNeeded = () => {
       const D = window.DeviceOrientationEvent;
@@ -156,18 +160,15 @@ class Game {
     };
     window.addEventListener('click', requestPermissionIfNeeded, { once: true });
     window.addEventListener('touchstart', requestPermissionIfNeeded, { once: true });
-
     const handleOrientation = (e) => {
+      this.orientationReceived = true;
       if (this.gameState === 'splash' && this.assetsLoaded) this.startGame();
-
       const beta = e.beta;   // front/back tilt: -180..180
       const gamma = e.gamma; // left/right tilt: -90..90
       if (beta == null || gamma == null) return;
-
       const absGamma = Math.abs(gamma);
       const absBeta = Math.abs(beta);
       let dir = this.player.gravityDirection;
-
       if (absGamma > absBeta) {
         if (gamma < -10) dir = 'left';
         else if (gamma > 10) dir = 'right';
@@ -175,21 +176,40 @@ class Game {
         if (beta < -10) dir = 'up';
         else if (beta > 10) dir = 'down';
       }
-
       if (dir !== this.player.gravityDirection) {
         this.player.gravityDirection = dir;
         this.enemies.forEach(enemy => { enemy.gravityDirection = dir; });
       }
     };
-
     window.addEventListener('deviceorientation', handleOrientation);
   }
-
+  // Fallback: start game via touch/click/key if no orientation support or no event fired yet
+  setupStartFallback() {
+    const canUseOrientation = !!window.DeviceOrientationEvent;
+    const maybeStart = () => {
+      if (this.gameState === 'splash' && this.assetsLoaded && (!canUseOrientation || !this.orientationReceived)) {
+        this.startGame();
+      }
+    };
+    const startOnUserInput = () => { maybeStart(); };
+    window.addEventListener('click', startOnUserInput, { passive: true });
+    window.addEventListener('touchstart', startOnUserInput, { passive: true });
+    window.addEventListener('keydown', startOnUserInput, { passive: true });
+    const loopCleanup = () => {
+      if (this.gameState !== 'splash') {
+        window.removeEventListener('click', startOnUserInput);
+        window.removeEventListener('touchstart', startOnUserInput);
+        window.removeEventListener('keydown', startOnUserInput);
+      } else {
+        requestAnimationFrame(loopCleanup);
+      }
+    };
+    requestAnimationFrame(loopCleanup);
+  }
   // Touch and keyboard controls removed (disabled)
   setupControls() {
     /* Disabled: Touch and keyboard controls are not used in gyro-only mode. */
   }
-
   applyGravity(entity) {
     switch(entity.gravityDirection) {
       case 'up':
@@ -205,10 +225,8 @@ class Game {
         entity.vx += entity.gravity;
         break;
     }
-    // Apply friction
     entity.vx *= 0.98;
     entity.vy *= 0.98;
-    // Update position
     entity.x += entity.vx;
     entity.y += entity.vy;
   }
@@ -219,7 +237,6 @@ class Game {
           entity.x + entity.width > wall.x &&
           entity.y < wall.y + wall.height &&
           entity.y + entity.height > wall.y) {
-        // Simple collision response - stop and reverse
         if (entity.vx > 0 && entity.x < wall.x) {
           entity.x = wall.x - entity.width;
           entity.vx = 0;
@@ -240,17 +257,14 @@ class Game {
     return collided;
   }
   checkCollisions() {
-    // Check player vs enemies - reset level on collision
     this.enemies.forEach(enemy => {
       if (this.player.x < enemy.x + enemy.width &&
           this.player.x + this.player.width > enemy.x &&
           this.player.y < enemy.y + enemy.height &&
           this.player.y + this.player.height > enemy.y) {
-        // Collision detected - reset level
         this.resetLevel();
       }
     });
-    // Items collection
     this.items.forEach(item => {
       if (!item.collected &&
           this.player.x < item.x + item.width &&
@@ -261,9 +275,7 @@ class Game {
         this.collectedItems++;
       }
     });
-    // Open exit when enough items collected
     this.exit.isOpen = this.collectedItems >= this.requiredItems;
-    // Check player vs exit
     if (this.exit.isOpen &&
         this.player.x < this.exit.x + this.exit.width &&
         this.player.x + this.player.width > this.exit.x &&
@@ -277,14 +289,11 @@ class Game {
     }
   }
   resetLevel() {
-    // Reset player position
     this.player.x = 20;
     this.player.y = 20;
     this.player.vx = 0;
     this.player.vy = 0;
-    // Reset enemies
     this.enemies = this.generateEnemies();
-    // Reset items and exit
     this.items = this.generateItems();
     this.collectedItems = 0;
     this.exit.isOpen = false;
@@ -296,7 +305,6 @@ class Game {
     this.items = this.generateItems();
     this.collectedItems = 0;
     this.exit.isOpen = false;
-    // Keep player spawn consistent
     this.player.x = 20;
     this.player.y = 20;
     this.player.vx = 0;
@@ -304,19 +312,15 @@ class Game {
   }
   update() {
     if (this.gameState !== 'playing') return;
-    // Update player
     this.applyGravity(this.player);
     this.checkWallCollision(this.player);
-    // Update enemies
     this.enemies.forEach(enemy => {
       this.applyGravity(enemy);
       this.checkWallCollision(enemy);
     });
-    // Check collisions
     this.checkCollisions();
   }
   render() {
-    // Draw background (image if loaded, else black)
     if (this.images.background && this.images.background.complete) {
       this.ctx.drawImage(this.images.background, 0, 0, this.width, this.height);
     } else {
@@ -324,11 +328,9 @@ class Game {
       this.ctx.fillRect(0, 0, this.width, this.height);
     }
     if (this.gameState === 'splash') {
-      // Splashscreen centered
       if (this.images.splash && this.images.splash.complete) {
         this.ctx.drawImage(this.images.splash, 0, 0, this.width, this.height);
       }
-      // Hint text
       this.ctx.fillStyle = '#FA6400';
       this.ctx.font = '14px monospace';
       this.ctx.textAlign = 'center';
@@ -336,7 +338,6 @@ class Game {
       return;
     }
     if (this.gameState === 'allComplete') {
-      // Show endscreen image if available
       if (this.images.endscreen && this.images.endscreen.complete) {
         this.ctx.drawImage(this.images.endscreen, 0, 0, this.width, this.height);
       } else {
@@ -350,12 +351,10 @@ class Game {
       }
       return;
     }
-    // Render walls (overlay simple lines to indicate platforms)
     this.ctx.fillStyle = 'rgba(255,255,255,0.25)';
     this.walls.forEach(wall => {
       this.ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
     });
-    // Render exit door with image
     if (this.images.exit && this.images.exit.complete) {
       this.ctx.globalAlpha = this.exit.isOpen ? 1 : 0.6;
       this.ctx.drawImage(this.images.exit, this.exit.x, this.exit.y, this.exit.width, this.exit.height);
@@ -364,7 +363,6 @@ class Game {
       this.ctx.fillStyle = this.exit.isOpen ? '#7FFF7F' : '#888888';
       this.ctx.fillRect(this.exit.x, this.exit.y, this.exit.width, this.exit.height);
     }
-    // Render items (keycards)
     this.items.forEach(item => {
       if (!item.collected) {
         if (this.images.item && this.images.item.complete) {
@@ -375,14 +373,12 @@ class Game {
         }
       }
     });
-    // Render player with image
     if (this.images.player && this.images.player.complete) {
       this.ctx.drawImage(this.images.player, this.player.x, this.player.y, this.player.width, this.player.height);
     } else {
       this.ctx.fillStyle = '#FFFFFF';
       this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
     }
-    // Render enemies with image
     this.enemies.forEach(enemy => {
       if (this.images.enemy && this.images.enemy.complete) {
         this.ctx.drawImage(this.images.enemy, enemy.x, enemy.y, enemy.width, enemy.height);
@@ -391,24 +387,9 @@ class Game {
         this.ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
       }
     });
-    // Render HUD with orange color (#FA6400)
     this.ctx.fillStyle = '#FA6400';
     this.ctx.font = '12px monospace';
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`Level: ${this.currentLevel}/${this.maxLevels}`, 10, 20);
     this.ctx.fillText(`Gravity: ${this.player.gravityDirection}`, 10, 35);
-    this.ctx.fillText(`Keys: ${this.collectedItems}/${this.requiredItems}`, 10, 50);
-    // Exit status
-    if (this.exit.isOpen) {
-      this.ctx.fillText('Exit: OPEN', 10, 65);
-    } else {
-      this.ctx.fillText('Exit: CLOSED', 10, 65);
-    }
-  }
-  gameLoop() {
-    this.update();
-    this.render();
-    requestAnimationFrame(() => this.gameLoop());
-  }
-}
-// Export
+    this.ctx.fillText
