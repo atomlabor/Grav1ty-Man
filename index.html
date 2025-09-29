@@ -24,8 +24,9 @@
       image-rendering: pixelated;
       touch-action: manipulation;
       z-index: 1;
+      visibility: hidden;
     }
-    .splash-overlay {
+    #splashScreen {
       position: absolute;
       top: 0; left: 0;
       width: 240px; height: 282px;
@@ -34,51 +35,75 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      z-index: 100;
       cursor: pointer;
+      z-index: 10;
+      user-select: none;
     }
-    .splash-image {
-      max-width: 190px;
-      max-height: 190px;
-      image-rendering: pixelated;
+    #splashScreen.hidden {
+      display: none;
     }
-    .splash-text {
-      font-size: 12px;
-      color: #bbb;
-      margin-top: 10px;
+    .splash-title {
+      color: #FA6400;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
       text-align: center;
     }
-    .hidden { display: none; }
+    .splash-subtitle {
+      color: #FFF;
+      font-size: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .splash-image {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      filter: grayscale(100%) contrast(120%);
+    }
+    .splash-instruction {
+      color: #FA6400;
+      font-size: 12px;
+      text-align: center;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="240" height="282"></canvas>
-  <div id="splashScreen" class="splash-overlay">
-    <img id="splashImage" src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image">
-    <div class="splash-text">Tap / Space / Enter zum Start</div>
+  <!-- Splash Screen -->
+  <div id="splashScreen">
+    <div class="splash-title">GRAV1TY-MAN</div>
+    <div class="splash-subtitle">Rabbit r1 Edition</div>
+    <div class="splash-image">🚀</div>
+    <div class="splash-instruction">CLICK TO START</div>
   </div>
-  <audio id="bgMusic" loop preload="auto" style="display:none">
-    <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
-  </audio>
-  
-  <script src="src/js/player.js"></script>
-  <script src="src/js/game.js"></script>
-  <script>
-  let game;
-  let audioInitialized = false;
 
+  <!-- Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <script src="src/js/assets.js"></script>
+  <script src="src/js/game.js"></script>
+  
+  <script>
+  let game = null;
+  
   function initializeAudio() {
-    if (!audioInitialized) {
-      const music = document.getElementById('bgMusic');
-      if (music) {
-        music.volume = 0.3;
-        music.play().catch(e => console.log('Audio autoplay blocked'));
-        audioInitialized = true;
+    // Audio context initialization for user interaction
+    if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
+      const AudioContextClass = AudioContext || webkitAudioContext;
+      if (!window.audioContext) {
+        window.audioContext = new AudioContextClass();
+      }
+      if (window.audioContext.state === 'suspended') {
+        window.audioContext.resume();
       }
     }
   }
-
+  
   function startGame() {
     document.getElementById('splashScreen').classList.add('hidden');
     initializeAudio();
@@ -99,7 +124,7 @@
       game = window.game;
     }
   }
-
+  
   window.addEventListener('DOMContentLoaded', () => {
     const splashScreen = document.getElementById('splashScreen');
     if (splashScreen) {
