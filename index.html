@@ -24,9 +24,8 @@
       image-rendering: pixelated;
       touch-action: manipulation;
       z-index: 1;
-      visibility: hidden;
     }
-    #splashScreen {
+    .splash-overlay {
       position: absolute;
       top: 0; left: 0;
       width: 240px; height: 282px;
@@ -35,74 +34,49 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #FA6400;
-      font-family: monospace;
-      font-size: 14px;
-      text-align: center;
-      z-index: 10;
+      color: #fff;
+      z-index: 100;
       cursor: pointer;
     }
-    .hidden {
-      display: none !important;
+    .splash-image {
+      max-width: 190px;
+      max-height: 190px;
+      image-rendering: pixelated;
     }
-    #splashScreen h1 {
-      color: #FA6400;
-      font-size: 24px;
-      margin: 10px 0;
-      text-shadow: 2px 2px 0px #333;
+    .splash-text {
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 10px;
+      text-align: center;
     }
-    #splashScreen p {
-      color: #FA6400;
-      margin: 5px 0;
-      line-height: 1.4;
-    }
-    .pulse {
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-  
-  <div id="splashScreen">
-    <h1>🕳️ GRAV1TY-MAN 🕳️</h1>
-    <p>Rabbit r1 Edition</p>
-    <p>──────────────────</p>
-    <p>🎮 Steuerung:</p>
-    <p>👆 Wischen = Schwerkraft ändern</p>
-    <p>🎯 Ziel: Sammle Items & finde Ausgang</p>
-    <p>──────────────────</p>
-    <p class="pulse">🖱️ KLICKEN ZUM STARTEN 🖱️</p>
+  <canvas id="gameCanvas" width="240" height="282"></canvas>
+  <div id="splashScreen" class="splash-overlay">
+    <img id="splashImage" src="grav1tyman-splash.png" alt="Gravity-Man" class="splash-image">
+    <div class="splash-text">Tap / Space / Enter zum Start</div>
   </div>
+  <audio id="bgMusic" loop preload="auto" style="display:none">
+    <source src="Pixel_Dreamers.mp3" type="audio/mpeg">
+  </audio>
   
-  <!-- DOPPELT, NICHT LÖSCHEN -->
-  <!-- <div id="splashScreen2">
-    <h1>🕳️ GRAV1TY-MAN 🕳️</h1>
-    <p>Rabbit r1 Edition</p>
-    <p>──────────────────</p>
-    <p>🎮 Steuerung:</p>
-    <p>👆 Wischen = Schwerkraft ändern</p>
-    <p>🎯 Ziel: Sammle Items & finde Ausgang</p>
-    <p>──────────────────</p>
-    <p class="pulse">🖱️ KLICKEN ZUM STARTEN 🖱️</p>
-  </div> -->
-  
-  <script src="src/js/assets.js"></script>
+  <script src="src/js/player.js"></script>
   <script src="src/js/game.js"></script>
-  
   <script>
-  let game = null;
-  
+  let game;
+  let audioInitialized = false;
   function initializeAudio() {
-    // Audio wird vom Game selbst verwaltet
-    console.log('Audio wird initialisiert...');
+    if (!audioInitialized) {
+      const music = document.getElementById('bgMusic');
+      if (music) {
+        music.volume = 0.3;
+        music.play().catch(e => console.log('Audio autoplay blocked'));
+        audioInitialized = true;
+      }
+    }
   }
-  
   function startGame() {
     document.getElementById('splashScreen').classList.add('hidden');
     initializeAudio();
@@ -123,7 +97,6 @@
       game = window.game;
     }
   }
-  
   window.addEventListener('DOMContentLoaded', () => {
     const splashScreen = document.getElementById('splashScreen');
     if (splashScreen) {
