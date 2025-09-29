@@ -17,7 +17,6 @@ Assets in repo root:
   };
   const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
   const rnd = (a,b) => a + Math.random()*(b-a);
-
   class Img {
     constructor(src){
       this.img = new Image();
@@ -28,7 +27,6 @@ Assets in repo root:
       this.img.src = src;
     }
   }
-
   class Music {
     constructor(src){
       this.a = document.getElementById('bgMusic') || document.createElement('audio');
@@ -41,9 +39,36 @@ Assets in repo root:
     play(){ try { this.a.play(); } catch(_) {} }
     stop(){ try { this.a.pause(); this.a.currentTime = 0; } catch(_) {} }
   }
-
   // Axis-aligned rect collision helper
   const hit = (a,b) => !(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
+
+  // Connectivity helpers
+  function buildGrid(w,h,cell){
+    const cols = Math.floor(w/cell), rows = Math.floor(h/cell);
+    const grid = Array.from({length:rows},()=>Array(cols).fill(0));
+    return {grid, cols, rows, cell};
+  }
+  function paintWallOnGrid(g, wall){
+    const {cell, cols, rows, grid} = g;
+    const x0 = clamp(Math.floor(wall.x/cell),0,cols-1);
+    const x1 = clamp(Math.floor((wall.x+wall.width-1)/cell),0,cols-1);
+    const y0 = clamp(Math.floor(wall.y/cell),0,rows-1);
+    const y1 = clamp(Math.floor((wall.y+wall.height-1)/cell),0,rows-1);
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) grid[y][x]=1;
+  }
+  function flood(g, sx, sy){
+    const {cols, rows, grid} = g; const q=[[sx,sy]]; const seen=new Set([sx+','+sy]);
+    while(q.length){
+      const [x,y]=q.shift();
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx, ny=y+dy; const key=nx+','+ny;
+        if(nx>=0&&nx<cols&&ny>=0&&ny<rows&&grid[ny][nx]===0&&!seen.has(key)){
+          seen.add(key); q.push([nx,ny]);
+        }
+      }
+    }
+    return seen;
+  }
 
   class LevelManager {
     constructor(w,h){ this.w = w; this.h = h; this.i = 0; this.levels = this.make(); }
@@ -62,28 +87,75 @@ Assets in repo root:
       const L = [];
       for(let i=0; i<5; i++){
         const l=mk();
-        // Platform rows
-        const rows = 4+i;
-        for(let r=0; r<rows; r++){
-          l.walls.push({x:26, y:24+(r*38), width:this.w-52, height:8});
+        // Connected corridor layout: alternating platforms with gaps
+        const tiers = 4+i;
+        const gapW = 22;
+        for(let r=0; r<tiers; r++){
+          const y = 24 + Math.floor((r+1)*(this.h-60)/(tiers+1));
+          const full = {x:26, y, width:this.w-52, height:8};
+          const leftGap = (r%2===0);
+          const gx = leftGap ? full.x + 36 : full.x + full.width - 36 - gapW;
+          // left segment
+          const leftW = Math.max(0, gx - full.x);
+          if(leftW>0) l.walls.push({x:full.x, y:full.y, width:leftW, height:full.height});
+          // right segment
+          const rightX = gx + gapW;
+          const rightW = Math.max(0, (full.x+full.width) - rightX);
+          if(rightW>0) l.walls.push({x:rightX, y:full.y, width:rightW, height:full.height});
         }
-        // Vertical pillars
-        for(let p=0; p<2+i; p++) {
-          const vx = (rnd(40,this.w-60) | 0);
-          l.walls.push({x:vx, y:28, width:8, height:(rnd(40,this.h-80)|0)});
+        // A few short pillars that don't block gaps (place near borders)
+        const pillars = Math.min(1+i, 3);
+        for(let p=0; p<pillars; p++){
+          const nearLeft = p%2===0;
+          const vx = nearLeft ? rnd(28, 60)|0 : rnd(this.w-80, this.w-42)|0;
+          const vh = rnd(24, this.h*0.35)|0;
+          l.walls.push({x:vx, y:28, width:8, height:vh});
         }
-        // 8 keycards per level
-        for(let k=0; k<8; k++) {
+        // Items near open space (not inside walls)
+        for(let k=0;k<8;k++){
           l.items.push({x:clamp((rnd(28,this.w-42)|0),28,this.w-42), y:clamp((rnd(40,this.h-56)|0),40,this.h-56), w:14,h:14,collected:false});
         }
-        // Enemies (Dalek sprites)
+        // Enemies
         const ec = 2+i;
-        for(let e=0; e<ec; e++) {
+        for(let e=0; e<ec; e++){
           let home = {x:clamp(rnd(34,this.w-60)|0,34,this.w-60), y:clamp(rnd(36,this.h-72)|0,36,this.h-72)};
           l.enemies.push({x:home.x, y:home.y, w:14, h:18, home:home, v:rnd(1.2,2.1), dir: 1, range: rnd(26,48), hor: !!(e%2)});
         }
         l.start = {x:18+(i*8), y:20+(i*6)};
         l.exit = {x: this.w-30-(i*2), y: this.h-30-(i*1), w:16, h:16, open:false};
+
+        // Connectivity check
+        const g = buildGrid(this.w,this.h,12);
+        for(const w of l.walls) paintWallOnGrid(g,w);
+        const sx = Math.floor((l.start.x+7)/g.cell), sy = Math.floor((l.start.y+9)/g.cell);
+        const seen = flood(g,sx,sy);
+        const ex = Math.floor((l.exit.x+8)/g.cell), ey = Math.floor((l.exit.y+8)/g.cell);
+        if(!seen.has(ex+","+ey)){
+          // Carve vertical openings at 1/3 and 2/3 width to guarantee connectivity
+          const ladders = [Math.floor(this.w*0.33), Math.floor(this.w*0.66)];
+          for(const lx of ladders){
+            for(const w of l.walls){
+              if(w.height<=10 && w.y>16 && lx>=w.x+8 && lx<=w.x+w.width-8){
+                const leftWidth = Math.max(0, (lx-10) - w.x);
+                const rightStart = lx+10;
+                const rightWidth = Math.max(0, (w.x+w.width) - rightStart);
+                Object.assign(w,{width:leftWidth});
+                if(rightWidth>0) l.walls.push({x:rightStart, y:w.y, width:rightWidth, height:w.height});
+              }
+            }
+          }
+        }
+        // Reposition items stuck in walls
+        const isWallAt = (x,y)=>{
+          const cx = clamp(Math.floor(x/g.cell),0,g.cols-1); const cy = clamp(Math.floor(y/g.cell),0,g.rows-1);
+          return g.grid[cy][cx]===1;
+        };
+        for(const it of l.items){
+          if(isWallAt(it.x+it.w/2, it.y+it.h/2)){
+            it.x = clamp((this.w/2 + rnd(-40,40))|0, 28, this.w-42);
+            it.y = clamp((this.h/2 + rnd(-70,70))|0, 40, this.h-56);
+          }
+        }
         L.push(l);
       }
       return L;
@@ -116,7 +188,6 @@ Assets in repo root:
       }
     }
   }
-
   class Player {
     constructor(x,y,s){
       this.x = x; this.y = y; this.w = 14; this.h = 18;
@@ -168,7 +239,6 @@ Assets in repo root:
       }
     }
   }
-
   class Game {
     constructor(){
       this.c = document.getElementById('gameCanvas') || this.mkCanvas();
@@ -215,185 +285,4 @@ Assets in repo root:
       this.c.addEventListener('touchend',e => {
         if(!t0) return;
         const t = e.changedTouches[0], dx = t.clientX-t0.x, dy = t.clientY-t0.y;
-        if(Math.max(Math.abs(dx),Math.abs(dy))>12){
-          if(Math.abs(dx)>Math.abs(dy)) setG(dx>0?'right':'left');
-          else setG(dy>0?'down':'up');
-        }
-        t0=null;
-      },{passive:true});
-      document.addEventListener('keydown',(e)=>{
-        switch(e.code){
-          case 'Space': e.preventDefault(); if(this.mode==='splash') this.start(); else this.paused = !this.paused; break;
-          case 'KeyA': if(this.mode==='playing') this.p.boost(); break;
-          case 'ArrowUp': setG('up'); break;
-          case 'ArrowDown': setG('down'); break;
-          case 'ArrowLeft': setG('left'); break;
-          case 'ArrowRight': setG('right'); break;
-        }
-      },{passive:false});
-      if('DeviceOrientationEvent' in window){
-        window.addEventListener('deviceorientation',ev=>{
-          const ax=Math.abs(ev.gamma||0), ay=Math.abs(ev.beta||0);
-          if(ax>ay)
-            setG((ev.gamma||0)>8?'right':(ev.gamma||0)<-8?'left':this.p.g||'down');
-          else
-            setG((ev.beta||0)>8?'down':(ev.beta||0)<-8?'up':this.p.g||'down');
-        });
-      }
-      // Rabbit SDK (optional)
-      const sdk = window.creations||window.r1||window.rabbit||null;
-      if(sdk?.on){
-        try{
-          sdk.on('ptt',p=>{if(!p)return; if(this.mode==='splash')this.start(); else this.paused=!this.paused;});
-          sdk.on('panel',v=>this.panelVisible=!!v);
-          sdk.on('orientation',({alpha,beta,gamma})=>{
-            const ax = Math.abs(gamma||0), ay = Math.abs(beta||0);
-            if(ax>ay)
-              setG((gamma||0)>8?'right':(gamma||0)<-8?'left':this.p.g||'down');
-            else
-              setG((beta||0)>8?'down':(beta||0)<-8?'up':this.p.g||'down');
-          });
-        }catch(_){}
-      }
-      window.addEventListener('resize',()=>this.resize());
-    }
-    resize(){
-      const dpr = Math.max(1,Math.min(2,window.devicePixelRatio||1));
-      this.c.width = this.w*dpr; this.c.height = this.h*dpr;
-      this.x.setTransform(dpr,0,0,dpr,0,0);
-    }
-    start(){
-      this.mode = 'playing'; this.paused = false;
-      this.c.style.visibility = 'visible';
-      this.c.scrollIntoView({behavior:'smooth', block:'center'});
-      this.music.play();
-      const l = this.levels.cur(), s = l.start;
-      this.p.x = s.x; this.p.y = s.y; this.p.vx = 0; this.p.vy = 0; this.p.setGravity('down');
-      this.collected = 0;
-      l.items.forEach(i=>i.collected=false);
-      l.exit.open = false;
-    }
-    restartLevel(){
-      const l = this.levels.cur(), s = l.start;
-      this.p.x = s.x; this.p.y = s.y; this.p.vx = 0; this.p.vy = 0; this.p.setGravity('down');
-      this.flashUntil = performance.now()+180;
-      l.items.forEach(i=>i.collected=false);
-      l.exit.open = false;
-      this.collected = 0;
-    }
-    loop(){ this.update(); this.render(); requestAnimationFrame(()=>this.loop()); }
-    update(){
-      if(this.mode!=='playing' || this.paused) return;
-      const l = this.levels.cur();
-      this.p.update(l);
-      // Items
-      for(const it of l.items){
-        if(!it.collected && this.p.coll(it)){
-          it.collected = true;
-          this.collected++;
-        }
-      }
-      if(this.collected >= 8) l.exit.open = true;
-      // Enemies move and collide
-      for(const e of l.enemies){
-        if(e.hor){
-          e.x += e.v*e.dir;
-          if(Math.abs(e.x-e.home.x) > e.range) e.dir *= -1;
-        } else {
-          e.y += e.v*e.dir;
-          if(Math.abs(e.y-e.home.y) > e.range) e.dir *= -1;
-        }
-        if(this.p.coll({x:e.x,y:e.y,w:e.w,h:e.h})) { this.restartLevel(); return; }
-      }
-      // Exit check
-      if(l.exit.open && this.p.coll({x:l.exit.x,y:l.exit.y,w:l.exit.w,h:l.exit.h})){
-        this.levelClears++;
-        if(this.levels.next()){
-          const nl = this.levels.cur(), s = nl.start;
-          this.p.x = s.x; this.p.y = s.y; this.p.vx = this.p.vy = 0; this.p.setGravity('down');
-          this.collected = 0;
-          nl.items.forEach(i=>i.collected=false);
-          nl.exit.open = false;
-        } else {
-          this.mode = 'end'; this.music.stop();
-        }
-      }
-    }
-    drawBG(){
-      const s = this.sprites.bg, ctx = this.x;
-      if(s.loaded && !s.error){
-        ctx.filter='grayscale(100%)';
-        ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-        ctx.drawImage(s.img,0,0,this.w,this.h);
-        ctx.filter='none';
-      } else {
-        ctx.fillStyle='#111';
-        ctx.fillRect(0,0,this.w,this.h);
-        ctx.fillStyle='#FFF';
-        ctx.font='12px monospace';
-        ctx.textAlign='center';
-        ctx.fillText('BG nicht geladen!',this.w/2,this.h/2);
-        ctx.textAlign='left';
-      }
-    }
-    drawSplash(){
-      const s=this.sprites.splash, ctx=this.x;
-      ctx.fillStyle='#000'; ctx.fillRect(0,0,this.w,this.h);
-      if(s.loaded){
-        const iw=s.img.width, ih=s.img.height;
-        const sc = Math.min(this.w/iw,(this.h-24)/ih);
-        const dw=(iw*sc)|0, dh=(ih*sc)|0;
-        const dx=((this.w-dw)/2)|0, dy=((this.h-dh)/2)|0;
-        ctx.filter='grayscale(100%)';
-        ctx.drawImage(s.img,dx,dy,dw,dh);
-        ctx.filter='none';
-      }
-      ctx.fillStyle='#FFF'; ctx.font='10px monospace'; ctx.textAlign='center';
-      ctx.fillText('Tap/Space/PTT to Start', this.w/2, this.h-10);
-      ctx.textAlign='left';
-    }
-    drawHUD(){
-      const ctx = this.x;
-      ctx.fillStyle='rgba(255,255,255,0.08)';
-      ctx.fillRect(0,0,this.w,12);
-      ctx.fillStyle='#FFF'; ctx.font='9px monospace'; ctx.textBaseline='middle';
-      ctx.textAlign='left';
-      ctx.fillText(`L${this.levels.i+1}/5 Parts:${this.collected}/8`,4,6);
-      ctx.textAlign='right';
-      ctx.fillText('Arrows=Gravity A=Boost', this.w-4,6);
-      ctx.textAlign='left';
-      if(this.flashUntil && performance.now()<this.flashUntil){
-        ctx.fillStyle='#FFD700';
-        ctx.font='11px monospace';
-        ctx.textAlign='center';
-        ctx.fillText('Kollision! Restart ...',this.w/2,18);
-        ctx.textAlign='left';
-      }
-    }
-    render(){
-      const ctx = this.x;
-      ctx.clearRect(0,0,this.w,this.h);
-      if(this.mode === 'splash'){
-        this.drawSplash();
-      } else if(this.mode === 'playing'){
-        this.drawBG();
-        this.levels.render(ctx, this.sprites);
-        for(const it of this.levels.cur().items)
-          if(!it.collected) ctx.drawImage(this.sprites.item.img,it.x,it.y,it.w,it.h);
-        for(const e of this.levels.cur().enemies)
-          ctx.drawImage(this.sprites.enemy.img,e.x,e.y,e.w,e.h);
-        this.sprites.player.loaded && this.p.render(ctx);
-        this.drawHUD();
-      } else if(this.mode === 'end'){
-        ctx.drawImage(this.sprites.end.img, 0, 0, this.w, this.h);
-        ctx.fillStyle = '#FFF';
-        ctx.font = '14px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Raumschiff repariert! Spiel gewonnen.', this.w/2, this.h/2 + 30);
-      }
-    }
-  }
-
-  window.onload = () => { window.game = new Game(); };
-
-})();
+        if(Math.max
